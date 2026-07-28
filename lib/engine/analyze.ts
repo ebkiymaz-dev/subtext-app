@@ -19,11 +19,11 @@ import { scoreCategories } from "./categories";
 import { buildCoach, buildInterpretations, whatWasntSaid } from "./interpretations";
 import { segment, setYou } from "./segment";
 
-export const ENGINE_VERSION = "subtext-engine/0.4.0 (mock)";
+export const ENGINE_VERSION = "subtext-engine/0.4.0 (local)";
 
 export const MOCK_NOTES = [
   "REAL and local in this build: segmentation, the distress screen, every deterministic category, all evidence extraction, the interpretation schema (3–5 reads, none over 60%, summing to 100).",
-  "MOCKED: the categories marked “inferred” and the interpretation prose. Live, these come from ONE structured model call per analysis, schema-validated and corroborated against the deterministic signals.",
+  "The categories marked “inferred” and the interpretation prose are produced by on-device heuristics and templates in this build — not by a language model. They read your actual text, but they are rule-based, so treat them as a prompt for your own judgement rather than a verdict.",
   "No raw text is ever persisted — only a per-month analysis count lives in local storage.",
 ];
 

@@ -70,7 +70,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             you what someone meant. It shows you which markers are present and where.
           </p>
           <p className="text-[10px] uppercase tracking-widest text-sbt-mute/70">
-            mock mode · {modeSummary()} · your conversation never leaves this device
+            on-device analysis · {modeSummary()} · your conversation never leaves this device
           </p>
         </div>
       </footer>

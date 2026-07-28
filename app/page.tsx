@@ -189,7 +189,7 @@ export default function Home() {
 
             <section className="rounded-sbt border border-sbt-linen bg-sbt-linen/40 p-4">
               <h3 className="text-[10px] uppercase tracking-widest text-sbt-mute">
-                what is real and what is mocked
+                how each reading is produced
               </h3>
               <ul className="mt-2 space-y-1.5">
                 {analysis.mockNotes.map((n) => (

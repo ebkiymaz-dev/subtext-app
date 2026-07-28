@@ -72,7 +72,7 @@ export default function Panel({
                 <p className="mt-1.5 text-[13px] leading-relaxed text-sbt-dusk">{c.read}</p>
 
                 <p className="mt-1 text-[10px] uppercase tracking-wider text-sbt-mute">
-                  {c.tier === "deterministic" ? "computed on your device" : "inferred read · mock"}
+                  {c.tier === "deterministic" ? "computed on your device" : "inferred · on-device heuristic"}
                   {c.evidence.length ? ` · ${c.evidence.length} evidence line${c.evidence.length > 1 ? "s" : ""}` : ""}
                 </p>
 

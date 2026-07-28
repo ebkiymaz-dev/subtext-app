@@ -46,7 +46,7 @@ export default function CoachCard({
               Unlock Premium — $8.99/mo
             </Link>
             <p className="mt-2 text-[10px] uppercase tracking-wider text-sbt-mute">
-              mock billing · no payment is taken
+              billing not connected · no payment is taken
             </p>
           </div>
         </div>
