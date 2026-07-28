@@ -153,6 +153,88 @@ export function resolveLlmProvider(): string {
   return "ollama"; // the recommended provider for this app specifically
 }
 
+// ═════════════════════════════════════════════════════════════
+// THE DEEP-READ PROVIDER SEAM (Premium tier).
+//
+// `capabilityReport()` below answers "what is configured?" for the UI and
+// returns booleans only. THIS function answers "how do I call it?" and
+// returns a key — so it is only ever called from `app/api/deep-read/route.ts`,
+// which is a server Route Handler. It must never be imported from a
+// "use client" module; doing so would put a provider key in the bundle.
+//
+// Model ladders are deliberately duplicated from the Python
+// `nj_providers/llm.py` rather than abstracted: model ids are the single most
+// perishable constant in the estate (Google retires ids out from under a
+// pinned name), and a ladder that walks past a 404 is the only thing that
+// keeps a pinned id from becoming an outage.
+// ═════════════════════════════════════════════════════════════
+
+export interface DeepProvider {
+  provider: string;
+  label: string;
+  /** which wire protocol to speak */
+  kind: "gemini" | "openai";
+  /** mutated by the route to record which rung actually answered */
+  model: string;
+  ladder: string[];
+  baseUrl: string;
+  apiKey: string;
+  configured: boolean;
+  missingEnv: string[];
+  free: boolean;
+  privacy: string;
+}
+
+const DEEP_LADDERS: Record<string, string[]> = {
+  // Verified against the live API 2026-07-29 in nj_providers: ListModels and
+  // generateContent disagree, so this ladder is the call-verified one.
+  gemini: ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.0-flash"],
+  groq: ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
+  ollama: ["qwen2.5:14b-instruct"],
+  openai: ["gpt-4o-mini"],
+};
+
+export function resolveDeepProvider(): DeepProvider {
+  const provider = resolveLlmProvider();
+  const spec = LLM_SPECS[provider];
+  // Claude's Messages API is a different shape from chat-completions. A shim
+  // that silently dropped parameters would be worse than an honest refusal,
+  // so this seam declines it rather than pretending.
+  const configured = llmIsConfigured(provider) && provider !== "claude";
+  const envModel = env(`${provider.toUpperCase()}_MODEL`);
+  const ladder = envModel
+    ? [envModel, ...(DEEP_LADDERS[provider] ?? []).filter((m) => m !== envModel)]
+    : (DEEP_LADDERS[provider] ?? []);
+
+  const baseUrl =
+    provider === "groq"
+      ? "https://api.groq.com/openai/v1"
+      : provider === "ollama"
+        ? `${env("OLLAMA_HOST") || "http://127.0.0.1:11434"}/v1`
+        : provider === "openai"
+          ? "https://api.openai.com/v1"
+          : "";
+
+  return {
+    provider,
+    label: spec?.label ?? provider,
+    kind: provider === "gemini" ? "gemini" : "openai",
+    model: ladder[0] ?? "",
+    ladder,
+    baseUrl,
+    apiKey: spec?.keyEnv ? env(spec.keyEnv) : "",
+    configured,
+    missingEnv:
+      provider === "claude"
+        ? ["GEMINI_API_KEY", "GROQ_API_KEY", "OLLAMA_HOST (Anthropic's API is not chat-completions shaped)"]
+        : configured || !spec?.keyEnv
+          ? []
+          : [spec.keyEnv],
+    free: spec?.free ?? false,
+    privacy: spec?.privacy ?? "",
+  };
+}
+
 export function capabilityReport(): CapabilityReport {
   const provider = resolveLlmProvider();
   const spec = LLM_SPECS[provider];

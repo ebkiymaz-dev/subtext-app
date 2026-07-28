@@ -2,13 +2,15 @@
   "name": "subtext-app",
   "version": "0.1.0",
   "private": true,
-  "description": "SUBTEXT — Grammarly for conversations. Mock-mode PWA (zero keys, zero cost, no raw text stored).",
+  "description": "SUBTEXT — Grammarly for conversations. On-device psycholinguistic engine (free) + one structured LLM call (premium). No raw text stored.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval": "tsc -p tsconfig.eval.json && node .eval-out/scripts/eval.js",
+    "eval:deep": "tsc -p tsconfig.eval.json && node .eval-out/scripts/eval.js --deep"
   },
   "dependencies": {
     "next": "14.2.35",

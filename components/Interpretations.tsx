@@ -46,6 +46,16 @@ export default function Interpretations({ items }: { items: Interpretation[] }) 
 
             <p className="mt-2 text-[13.5px] leading-relaxed text-sbt-dusk">{it.body}</p>
 
+            {/* Law 2 again: a reading with no line behind it is a horoscope. */}
+            {(it.quotes ?? []).map((q) => (
+              <p
+                key={q}
+                className="mt-2 border-l-2 border-sbt-gold/50 pl-2.5 font-display text-[13px] italic leading-relaxed text-sbt-mute"
+              >
+                “{q}”
+              </p>
+            ))}
+
             <div className="mt-3 rounded-sbt bg-white/80 px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-wider text-sbt-mute">
                 if this reading is the right one

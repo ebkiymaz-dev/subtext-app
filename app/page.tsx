@@ -10,6 +10,10 @@ import {
   canAnalyse, FREE_LIMIT, isPaid, readUsage, recordAnalysis, remaining, type Usage,
 } from "@/lib/usage";
 import { config } from "@/lib/config";
+import { requestDeepRead } from "@/lib/deepReadClient";
+import type { DeepReadResult } from "@/lib/engine/deepRead";
+import { withBase } from "@/lib/basePath";
+import DeepReadCard from "@/components/DeepReadCard";
 import DistressCard from "@/components/DistressCard";
 import SegmentedTranscript from "@/components/SegmentedTranscript";
 import Panel from "@/components/Panel";
@@ -37,7 +41,25 @@ export default function Home() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [blocked, setBlocked] = useState(false);
 
+  // The AI-assisted tier. Deliberately NOT run automatically: the on-device
+  // analysis is complete, and the deep read is the one action in this app
+  // that sends text off the device, so it takes a deliberate press.
+  const [deepState, setDeepState] = useState<"idle" | "running" | "done">("idle");
+  const [deepResult, setDeepResult] = useState<DeepReadResult | null>(null);
+  const [providerLabel, setProviderLabel] = useState<string | null>(null);
+
   useEffect(() => setUsage(readUsage()), []);
+
+  useEffect(() => {
+    // Configuration state only — no message text is ever sent to this endpoint.
+    fetch(withBase("/api/capabilities"))
+      .then((r) => r.json())
+      .then((d) => {
+        const llm = d?.capabilities?.llm;
+        if (llm?.configured) setProviderLabel(llm.label as string);
+      })
+      .catch(() => setProviderLabel(null));
+  }, []);
 
   // Live preview of the parse, so "which one is you?" is answerable up front.
   const preview = useMemo(() => (raw.trim() ? segment(raw) : null), [raw]);
@@ -70,14 +92,26 @@ export default function Home() {
       setUsage(recordAnalysis());
       setActive(null);
       setShowAll(false);
+      setDeepState("idle");
+      setDeepResult(null);
       setPhase("result");
     }, 900);
+  }
+
+  async function runDeepRead() {
+    if (!analysis) return;
+    setDeepState("running");
+    const res = await requestDeepRead(raw, context, youName ?? undefined);
+    setDeepResult(res);
+    setDeepState("done");
   }
 
   function reset() {
     setPhase("intake");
     setAnalysis(null);
     setActive(null);
+    setDeepState("idle");
+    setDeepResult(null);
   }
 
   const paid = usage ? isPaid(usage) : false;
@@ -122,6 +156,14 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {/* THE HEADLINE. Nine bars is not an answer; this is the answer. */}
+        <section className="rounded-sbt border border-sbt-gold/30 bg-sbt-gold/[0.06] p-5">
+          <p className="text-[10px] uppercase tracking-widest text-sbt-mute">the short version</p>
+          <p className="mt-1.5 font-display text-[17px] leading-relaxed text-sbt-ink sm:text-[19px]">
+            {analysis.headline}
+          </p>
+        </section>
 
         <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="order-2 lg:order-1">
@@ -187,19 +229,28 @@ export default function Home() {
 
             <CoachCard suggestions={analysis.coach} locked={!paid} />
 
+            <DeepReadCard
+              state={deepState}
+              result={deepResult}
+              locked={!paid}
+              providerLabel={providerLabel}
+              onRun={runDeepRead}
+            />
+
             <section className="rounded-sbt border border-sbt-linen bg-sbt-linen/40 p-4">
               <h3 className="text-[10px] uppercase tracking-widest text-sbt-mute">
                 how each reading is produced
               </h3>
               <ul className="mt-2 space-y-1.5">
-                {analysis.mockNotes.map((n) => (
+                {analysis.methodNotes.map((n: string) => (
                   <li key={n} className="text-[11px] leading-relaxed text-sbt-dusk">
                     · {n}
                   </li>
                 ))}
               </ul>
               <p className="mt-2 text-[10px] uppercase tracking-wider text-sbt-mute">
-                {analysis.engineVersion} · llm mode: {config.llmMode}
+                {analysis.engineVersion} · everything on this page: on-device
+                {providerLabel ? ` · deep read available via ${providerLabel}` : " · no model provider configured"}
               </p>
             </section>
           </div>
@@ -326,7 +377,7 @@ export default function Home() {
       <section>
         <h2 className="font-display text-xl text-sbt-ink">See it in action</h2>
         <p className="mt-1 text-[13px] text-sbt-mute">
-          Four real-shaped examples. No sign-up, no gate. The last one is the important one.
+          Five real-shaped examples. No sign-up, no gate. The last one is the important one.
         </p>
 
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">

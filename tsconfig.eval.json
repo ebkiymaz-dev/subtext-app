@@ -1,0 +1,17 @@
+{
+  "//": "Standalone compile for the eval harness. The engine has zero runtime dependencies on purpose, so it compiles and runs under plain node with no bundler and no Next.js in the loop — which is what makes the quality gate cheap enough to actually run on every change. CommonJS output because the repo has no \"type\": \"module\".",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "outDir": ".eval-out",
+    "rootDir": ".",
+    "noEmitOnError": true
+  },
+  "include": ["scripts/eval.ts", "lib/engine/**/*.ts", "lib/evalSet.ts", "lib/legitimacy.ts"]
+}

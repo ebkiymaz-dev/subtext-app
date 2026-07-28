@@ -1,4 +1,24 @@
-# Subtext — mock build
+# Subtext
+
+> ## 2026-07-29 — engine v2, and the LLM tier is real
+>
+> **The free tier got a new brain.** `lib/engine/signals.ts` reads conversational
+> **moves** instead of counting words: bids for connection and whether each was
+> met, the **register gap** between the two speakers ("thank you" vs "thanks"),
+> closing moves vs continuation bids, what was not reciprocated, style matching,
+> where the enthusiasm markers land, and reply latency. See §**Engine v2**.
+>
+> **Premium now makes a real model call.** `POST /api/deep-read`, server-side,
+> one structured Gemini call per analysis, schema-constrained, and every quote
+> validated character-for-character against your paste before it is shown.
+> See §**The deep read**.
+>
+> **`npm run eval`** is the quality gate — 10 conversations with declared
+> expectations, including the crisis invariant and a **spread** assertion that
+> fails the run if the engine answers the same thing to different conversations.
+> That assertion is what v1 would have failed.
+>
+> Full write-up: `STATUS.md`.
 
 > ## 2026-07-28 — re-skinned, and moved to a path URL
 >
@@ -29,7 +49,12 @@ always include the kindest one.
 
 **Possibilities, never verdicts. Confidence, never fact.**
 
-This build runs **entirely in mock mode**: no model key, no server, no account, no spend.
+**Two tiers, labelled honestly wherever they appear:**
+
+| | |
+|---|---|
+| **On-device (free)** | The whole panel, the headline, the evidence, the competing readings, the crisis screen. Runs in your browser. Nothing leaves the machine. No key, no server, no spend. |
+| **AI-assisted (Premium)** | One structured server-side model call, opt-in per analysis, behind a consent line that appears **before** the button. This is the only part of Subtext that sends text anywhere. |
 
 ---
 
@@ -43,6 +68,8 @@ npm run dev          # http://localhost:3000
 
 ```bash
 npm run typecheck    # tsc --noEmit
+npm run eval         # the quality gate — 10 conversations, assertions, spread check
+npm run eval:deep    # …plus the AI tier, against a running dev server
 npm run build        # production build
 ```
 
@@ -66,10 +93,13 @@ npm run build        # production build
    one flagged as the most-charitable read (teal), each with a suggested next message.
 6. **What wasn't said** — the absences, which are often the signal.
 7. **Coach (Premium)** — 2–4 option-framed suggestions, blurred on Free.
-8. **Free counter** — 3 analyses/month, then the Premium $8.99 gate. Mock checkout.
+8. **The deep read (Premium)** — an explicit, opt-in button behind a consent line that names the
+   privacy trade before you press it. One real model call.
+9. **Free counter** — 3 analyses/month, then the Premium $8.99 gate. Mock checkout.
 
-Four seeded showcase conversations ship with the app: the slow fade, the terse boss, the family
-ask, and — deliberately last — the 2am message.
+Five seeded showcase conversations ship with the app: **two lines** (a compliment and a polite
+goodbye — the clearest demonstration of what v2 does that a word-counter cannot), the slow fade,
+the terse boss, the family ask, and — deliberately last — the 2am message.
 
 ---
 
@@ -99,20 +129,89 @@ confidence in a read of someone's text is never honest.
 
 ---
 
-## What is real and what is mocked
+## Engine v2 — what the free tier actually reads
 
-| Real and local | Mocked |
+v1 counted things: reply length, question marks, lexicon hits. That is why it answered *about 49%*
+to almost every conversation. v2 reads **moves** — what a turn did to the one before it.
+
+`lib/engine/signals.ts` extracts, all on-device:
+
+- **Bids and responses (Gottman).** A bid is any turn inviting connection — a compliment, an
+  expression of affection, an invitation, a disclosure, a question, shared news, a request. Each
+  reply is classified **toward / minimal / away / against**.
+  **`minimal` is the class that matters**: acknowledged and not extended. Polite, correct, closed.
+  It is where almost all real-world hurt lives, because it looks identical to warmth to anything
+  counting sentiment words.
+- **Register asymmetry.** Per-turn formality, and the **gap** between the two speakers. "thank you"
+  and "thanks" mean the same thing and do different work; so do "good night" and "night". Answering
+  an intimate register in a formal one is one of the quieter ways distance appears in text.
+- **Closing vs continuing.** Sign-offs and stated exits against continuation bids, weighted toward
+  the final turns — plus **mutual close**, because both people saying "see you then" is a finished
+  conversation, not a withdrawal.
+- **Substantive word count.** Words left once politeness and sign-offs are stripped.
+  `"thank you, good night!"` → **0**.
+- **Uptake.** Toward/away applied to every turn, not just bids — two people agreeing a time make no
+  bids at all and are perfectly engaged.
+- **Reciprocation.** Was the compliment returned, the disclosure matched, the question asked back.
+- **Style matching (LSM).** Ireland & Pennebaker's method across nine function-word families.
+  **Not reported at all below 25 words a side** — a metric that cannot be supported is hidden,
+  not hedged.
+- **Enthusiasm placement.** An exclamation mark on a sign-off is politeness; the same mark on the
+  content is warmth. Position is the only thing that tells them apart.
+- **Reply latency**, from WhatsApp timestamps, when the paste carried them.
+- **Longest unanswered run** — so the engine can see *you* piling on. An instrument that can only
+  find fault with the other person is a flattery machine.
+
+**Calibration.** No blanket softener. Categorical signals are not shrunk (a sign-off is a sign-off
+in two lines or two hundred); rate signals are shrunk by sample weight and suppressed below their
+support threshold. The 92% ceiling stays. **Percentages do not sum to 100** — they are independent
+readings of independent questions.
+
+---
+
+## The deep read (Premium) — a real model call
+
+`POST /api/deep-read`. Server-only, one call per analysis, temperature 0.15.
+
+**The order is the safety guarantee:**
+
+1. **Crisis screen, server-side**, on the raw text, before anything else — the client already ran
+   it, and running it again means a stale or tampered client still cannot get a distressed message
+   to a model. Returns the resource path and spends nothing.
+2. Segmentation + signal extraction (the same on-device code, run again).
+3. One structured call. Gemini uses its native endpoint because it is the only free option that
+   enforces a response **schema**; Groq / OpenAI / Ollama share the chat-completions path.
+4. **Validation.** This is the product:
+   - **Grounding** — every quote must appear verbatim in the pasted text. A quote that does not
+     match is deleted, and a claim that loses its last quote is deleted with it. This is the one
+     check that stops the model inventing evidence, which is the thing it most wants to do.
+   - **Schema** — 3–5 readings, none above 60%, exactly one charitable, weights renormalised to
+     100 **in code** rather than trusted.
+   - **Lexicon** — the banned-phrase list applied to every rendered string.
+5. At most **one** repair retry, then honest failure. A missing deep read is a smaller problem than
+   a fluent invented one, and the UI says so.
+
+The validator's repairs are **shown to the user**. A model being corrected is more trustworthy than
+one that appears perfect.
+
+**Provider seam:** `resolveDeepProvider()` in `lib/providers.ts`, mirroring `nj_providers/llm.py`.
+Model ladder `gemini-3.6-flash` → `gemini-flash-latest` → `gemini-2.0-flash`, walking past 404/503
+because Google retires ids out from under a pinned name. Set `GEMINI_API_KEY` **server-side** — a
+key in a `NEXT_PUBLIC_` variable is a published key.
+
+---
+
+## What is on-device and what is AI
+
+| On-device, always (free) | AI-assisted (Premium, opt-in per analysis) |
 |---|---|
-| Segmentation (three paste formats) | The categories marked "inferred" |
-| **The distress screen** | The interpretation prose |
-| Every deterministic category: engagement, power/balance, reciprocity, investment, formal register | |
+| Segmentation (three paste formats) | The deep read: subtext claims, relational cues |
+| **The crisis screen** | Its own competing readings and next-move options |
+| Every category score, from the signal layer | |
+| The headline, the competing readings, "what wasn't said", Coach | |
 | All evidence extraction — the verbatim spans behind every score | |
-| The interpretation schema: 3–5 reads, none >60%, summing to exactly 100, exactly one charitable | |
-| The free counter, the paywall, the banned-lexicon check | |
-
-In a live build, only the `inferred` scores and the prose come from **one structured model call per
-analysis**. Steps 1–3 stay on-device forever — which is what makes "your conversation never touches
-our server" literally true rather than a marketing line.
+| The interpretation schema and the banned-lexicon check | |
+| The free counter and the paywall | |
 
 **Nothing but a month key and a count is ever persisted.** No raw text, no per-person profiles,
 no history of who you analysed. That refusal is the moat, not a missing feature.
@@ -122,16 +221,19 @@ no history of who you analysed. That refusal is the moat, not a missing feature.
 ## Server + payment wiring TODO
 
 ### The model call
-- [ ] `POST /api/analyze` — takes the deterministic metrics + the transcript, returns the inferred category scores and interpretations against a **strict schema**.
-- [ ] Schema loop: reject and retry if fewer than 3 interpretations, if any single one exceeds ~60%, or if any score arrives without a cited evidence line.
-- [ ] Corroborate the model against the deterministic signals — **on disagreement the lower-confidence honest read wins** (Law 6).
-- [ ] Run the banned-lexicon check over model output too, not just static strings. Make it build-failing in CI.
-- [ ] Build the **50-conversation calibration eval set** — this is the real gate. Without it you cannot tell a good prompt from a sycophantic one. Re-run it on every prompt change.
-- [ ] Set `NEXT_PUBLIC_LLM_MODE=live`.
+- [x] `POST /api/deep-read` — server-side, one structured call, schema-constrained.
+- [x] Schema enforced in code: 3–5 interpretations, none above 60%, exactly one charitable, weights renormalised to 100.
+- [x] Grounding check — every quote validated character-for-character against the input; unsupported claims deleted.
+- [x] Banned-lexicon check applied to model output, not just static strings.
+- [x] Crisis screen runs server-side **before** the call as well as client-side.
+- [x] Calibration eval set started — `npm run eval`, 10 cases, with a **spread** assertion.
+- [ ] Grow it to the **50 conversations** `DESIGN_BUILD.md` names as the real go-live gate. Re-run on every prompt change.
+- [ ] Spot-check one live Gemini call on the deployment box — the sandbox this was built in blocks `googleapis.com`.
+- [ ] Corroboration rule (Law 6): on disagreement between the model and the on-device signals, surface the lower-confidence honest read. Currently both are shown side by side and labelled.
 
 ### Privacy (the central promise — verify, don't assume)
-- [ ] **Body-scrub proving test:** conversation text must never reach a log line, an error tracker, or an analytics payload. Allowlist-based scrubbing, and a test that fails the build if raw text escapes.
-- [ ] Keep the distress screen client-side. It must fire before anything leaves the device.
+- [ ] **Body-scrub proving test:** conversation text must never reach a log line, an error tracker, or an analytics payload. Allowlist-based scrubbing, and a test that fails the build if raw text escapes. The `/api/deep-read` catch blocks already log a category rather than the error object, because the error object would carry the conversation — but that is a convention, not yet a test.
+- [x] Distress screen runs client-side before anything leaves the device, **and** server-side before the model call.
 - [ ] Jurisdiction-aware crisis links (detect locale → local helpline) — **day one, not later**.
 
 ### Backend

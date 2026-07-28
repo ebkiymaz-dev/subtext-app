@@ -5,9 +5,16 @@
 // them against the model): at least 3 interpretations, no single one above
 // 60, weights sum to exactly 100, and EXACTLY ONE is flagged as the
 // most-charitable read. The design never lets the darkest read stand alone.
+//
+// v2: the candidates below are generated from SIGNALS rather than from
+// category percentages, and each one carries the verbatim lines it rests on.
+// A reading with no quote behind it is a horoscope.
 // ═════════════════════════════════════════════════════════════
 
-import type { CategoryScore, ContextId, Interpretation, Transcript } from "./types";
+import type {
+  CategoryScore, ContextId, Interpretation, SignalSummary, Transcript,
+} from "./types";
+import { BID_LABEL } from "./signals";
 
 const MAX_SINGLE = 60;
 
@@ -18,15 +25,81 @@ interface Candidate {
   suggestedNext: string;
   charitable?: boolean;
   weight: number;
+  quotes?: string[];
 }
 
-const get = (cats: CategoryScore[], id: string) =>
-  cats.find((c) => c.id === id)?.percent ?? 0;
+const get = (cats: CategoryScore[], id: string) => cats.find((c) => c.id === id)?.percent ?? 0;
+
+const quoteOf = (t: Transcript, id: string | null | undefined) =>
+  id ? (t.messages.find((m) => m.id === id)?.text ?? "") : "";
+
+/**
+ * THE HEADLINE — one sentence, stated plainly.
+ *
+ * The panel is honest but it is also nine bars, and nine bars is not an
+ * answer. This is the answer, and it is deliberately allowed to be blunt:
+ * hedging every sentence into mush is its own kind of dishonesty, and it was
+ * the main thing wrong with the v1 output.
+ */
+export function buildHeadline(
+  s: SignalSummary,
+  cats: CategoryScore[],
+  t: Transcript,
+  context: ContextId
+): string {
+  const bid = s.bids.find((b) => b.by === "you" && (b.kind === "compliment" || b.kind === "affection"));
+
+  if (s.softClose && bid) {
+    return `${bid.kind === "compliment" ? "A compliment" : "An expression of affection"} was answered with a politeness token and a sign-off. Warm on the surface, closed underneath — and the closing is the part that carries information.`;
+  }
+  if (get(cats, "pressure") >= 40) {
+    return "The phrasing on their side is doing work on you: obligation, urgency and consensus framing all appear, and the effect is to compress your time to think.";
+  }
+  // ── the reading the user did not come here for ──
+  // There are two people in every transcript and one of them is holding the
+  // phone. An engine that can only find things wrong with the other person is
+  // a flattery machine, so this branch sits high in the ladder on purpose.
+  if (s.longestRun.you >= 3 && s.themWords < s.youWords * 0.7) {
+    return `You sent ${s.longestRun.you} messages in a row before they answered. Most of the shape of this exchange is yours, which is worth knowing before reading anything into the size of their reply.`;
+  }
+  if (context === "work" && get(cats, "accountability_shift") >= 28) {
+    return "The failure is described without anybody in it — things “got missed” and “weren't clear” rather than someone missing or clarifying them. Paired with a deferral, the effect is that nothing is answerable today.";
+  }
+  // A one-sided close is a signal. A mutual one is a finished conversation,
+  // and reading it as withdrawal is how this kind of tool starts inventing
+  // problems for people.
+  if (
+    !s.mutualClose &&
+    s.closingIndex >= 0.6 &&
+    s.continuationIndex <= 0.2 &&
+    s.lastSpeaker === "them" &&
+    get(cats, "engagement") < 45
+  ) {
+    return "Their last message retires the conversation rather than handing it back. Nothing in it needs a reply, which is usually a choice even when it isn't a conscious one.";
+  }
+  if (
+    (context === "dating" || context === "friendship") &&
+    (get(cats, "fade_markers") >= 45 || (get(cats, "engagement") < 35 && get(cats, "subtext_load") >= 40))
+  ) {
+    return "Warm words, no dates attached. Every reference to the future here is unbounded, and unbounded is how a fade sounds while it is happening.";
+  }
+  if (get(cats, "engagement") >= 60 && get(cats, "reciprocity") >= 55) {
+    return "Both of you are carrying this. Bids get met and extended, questions travel in both directions, and the register is matched — this reads as a conversation, not a transaction.";
+  }
+  if (get(cats, "evasion") >= 45) {
+    return "Specific questions are meeting non-specific answers. That pattern is consistent with a topic being stepped around — which is not the same as you being stepped around.";
+  }
+  if (s.turns.length <= 3) {
+    return `${s.turns.length} message${s.turns.length === 1 ? "" : "s"} is a thin sample. The structural signals below are real, but a confident story about what they mean would be invented rather than found.`;
+  }
+  return "Nothing in this exchange is doing anything unusual. That is a real finding rather than a failure to find one.";
+}
 
 export function buildInterpretations(
   cats: CategoryScore[],
   context: ContextId,
-  t: Transcript
+  t: Transcript,
+  s: SignalSummary
 ): Interpretation[] {
   const engagement = get(cats, "engagement");
   const evasion = get(cats, "evasion");
@@ -35,7 +108,13 @@ export function buildInterpretations(
   const attachment = get(cats, "attachment");
   const subtext = get(cats, "subtext_load");
   const fade = get(cats, "fade_markers");
+  const distance = get(cats, "warmth_distance");
   const affectWarm = cats.find((c) => c.id === "affect")?.tone === "warm";
+
+  const softBid = s.bids.find(
+    (b) => b.by === "you" && (b.kind === "compliment" || b.kind === "affection" || b.kind === "self_disclosure")
+  );
+  const closingQuote = s.lastSpeaker === "them" ? t.messages[t.messages.length - 1]?.text ?? "" : "";
 
   const candidates: Candidate[] = [];
 
@@ -43,30 +122,74 @@ export function buildInterpretations(
   candidates.push({
     id: "charitable",
     charitable: true,
-    title: "The straightforward read",
-    body:
-      stress >= 35
+    title: s.softClose ? "They were going to bed" : "The straightforward read",
+    body: s.softClose
+      ? "A sign-off at the end of a night is the most ordinary thing in text. Someone who is tired, or in bed, or holding a phone in one hand answers warmly and briefly and means nothing by the brevity. Nothing here rules that out, and it is the single most likely explanation of any individual short goodbye."
+      : stress >= 35
         ? "They are carrying something unrelated to you. Strain-associated language shows up across their messages regardless of topic, which is what capacity looks like when it runs out — not what disinterest looks like."
         : engagement >= 50
           ? "They mean what they wrote. The exchange is broadly reciprocal, and the ambiguity you are reading may be the ordinary compression of text rather than a signal."
           : "They are short because they are busy or writing on a phone, and the brevity carries no message beyond itself. Terse text is the weakest evidence there is.",
-    suggestedNext:
-      "Say the plain thing: “Hey — no pressure either way, just wanted to check we're good.” It costs nothing and resolves most of this.",
-    weight: 30,
+    suggestedNext: s.softClose
+      ? "Do nothing tonight. If this reading is right, tomorrow looks completely normal and you will have lost nothing by waiting to find out."
+      : "Say the plain thing: “Hey — no pressure either way, just wanted to check we're good.” It costs nothing and resolves most of this.",
+    weight: s.softClose ? 30 : 30,
+    quotes: closingQuote ? [closingQuote] : [],
   });
 
-  if (evasion >= 35 || subtext >= 40) {
+  // ── the polite-close read: v2's signature ──
+  if (s.softClose && softBid) {
     candidates.push({
-      id: "avoiding",
-      title: "Something is being stepped around",
-      body: `Questions were raised and not engaged with, and the phrasing moves away from specifics rather than toward them. That pattern is consistent with avoiding a particular topic — which is not the same as avoiding you.`,
+      id: "polite_close",
+      title: "The politeness is doing the work of a step back",
+      body: `You offered ${BID_LABEL[softBid.kind]} and what came back acknowledged it without taking it anywhere, in a register one notch more formal than the one you used, and then ended the conversation. Any one of those is nothing. Together they are the shape a soft no takes in text — not a rejection anyone would recognise as one, including the person writing it.`,
       suggestedNext:
-        "Ask one narrow, answerable question instead of an open one. “Is Thursday still on — yes or no?” gives them a cheap way to be direct.",
-      weight: 26,
+        "Let the next opening be theirs. You have just given them something easy to pick up; whether they pick it up tomorrow tells you far more than another message from you would.",
+      weight: 28,
+      quotes: [quoteOf(t, softBid.messageId), quoteOf(t, softBid.responseMessageId)].filter(Boolean),
     });
   }
 
-  if (fade >= 30 || (engagement < 40 && context === "dating")) {
+  if (
+    !s.softClose &&
+    s.closingIndex >= 0.55 &&
+    s.continuationIndex <= 0.25 &&
+    s.lastSpeaker === "them"
+  ) {
+    candidates.push({
+      id: "wound_down",
+      title: "The thread is being wound down, not dropped",
+      body: "The last turns from their side close topics rather than opening them, and nothing at the end needs an answer. That is what winding down looks like — it is much more common than a decision, and it does not survive contact with one good reason to keep talking.",
+      suggestedNext:
+        "If you want it to continue, give it a specific reason to: one concrete question or one concrete plan, not an open-ended check-in.",
+      weight: 24,
+      quotes: closingQuote ? [closingQuote] : [],
+    });
+  }
+
+  // Gated on evasion alone. It used to also fire on a high subtext load, and
+  // the eval caught it asserting "questions were raised and not engaged with"
+  // about an exchange containing no questions. A reading that describes
+  // something that did not happen is worse than no reading.
+  const unansweredCount =
+    cats.find((c) => c.id === "evasion")?.evidence.filter((e) => /did not engage/.test(e.why)).length ?? 0;
+  if (evasion >= 35) {
+    candidates.push({
+      id: "avoiding",
+      title: "Something is being stepped around",
+      body: `${unansweredCount ? `${unansweredCount} question${unansweredCount > 1 ? "s were" : " was"} raised and not engaged with, and the ` : "The "}phrasing moves away from specifics rather than toward them. That pattern is consistent with avoiding a particular topic — which is not the same as avoiding you.`,
+      suggestedNext:
+        "Ask one narrow, answerable question instead of an open one. “Is Thursday still on — yes or no?” gives them a cheap way to be direct.",
+      weight: 24,
+      quotes: cats
+        .find((c) => c.id === "evasion")
+        ?.evidence.slice(0, 2)
+        .map((e) => quoteOf(t, e.messageId))
+        .filter(Boolean),
+    });
+  }
+
+  if (fade >= 30 || (engagement < 40 && context === "dating" && s.turns.length > 4)) {
     candidates.push({
       id: "fading",
       title: "Interest is drifting",
@@ -74,6 +197,11 @@ export function buildInterpretations(
       suggestedNext:
         "Stop carrying the thread. Match their energy for a beat and let them initiate next; what happens next tells you more than another message will.",
       weight: 22,
+      quotes: cats
+        .find((c) => c.id === "fade_markers")
+        ?.evidence.slice(0, 2)
+        .map((e) => quoteOf(t, e.messageId))
+        .filter(Boolean),
     });
   }
 
@@ -84,7 +212,23 @@ export function buildInterpretations(
       body: "Obligation, urgency or consensus framing is present. Whatever their intent, the effect of that phrasing is to compress your time to think.",
       suggestedNext:
         "Buy back the time explicitly: “I want to give you a real answer — I'll come back to you tomorrow.” A reasonable ask survives a day.",
-      weight: 24,
+      weight: 26,
+      quotes: cats
+        .find((c) => c.id === "pressure")
+        ?.evidence.slice(0, 2)
+        .map((e) => quoteOf(t, e.messageId))
+        .filter(Boolean),
+    });
+  }
+
+  if (distance >= 55 && !s.softClose) {
+    candidates.push({
+      id: "register_shift",
+      title: "The register has moved, and the content hasn't",
+      body: "Nothing they have written is unkind, and the formality gap between the two of you is wide enough to see. When people want less closeness they rarely say so; they raise the register and let it do the work.",
+      suggestedNext:
+        "Match their register once and see what happens. If the gap closes on its own, it was a mood. If it holds, it is information.",
+      weight: 20,
     });
   }
 
@@ -109,35 +253,46 @@ export function buildInterpretations(
     });
   }
 
-  // Always at least three reads.
-  if (candidates.length < 3) {
-    candidates.push({
+  // ── the floor: three reads, always ──
+  // These are not filler. Each is a genuine, common explanation that the
+  // specific detectors above cannot represent, and they are added in order
+  // until the schema minimum is met.
+  const GENERICS: Candidate[] = [
+    {
       id: "ambiguous",
-      title: "There genuinely isn't enough signal here",
-      body: `${t.messages.length} message${t.messages.length === 1 ? "" : "s"} is a thin sample. The honest read is that this exchange does not carry a clear direction, and a confident interpretation of it would be invented rather than found.`,
-      suggestedNext: "Wait for one more exchange before drawing a conclusion from it.",
-      weight: 18,
-    });
-  }
-  if (candidates.length < 3) {
-    candidates.push({
+      title: "There genuinely isn't much here to read",
+      body: `${t.messages.length} message${t.messages.length === 1 ? "" : "s"} is a thin sample. The structural signals above are real — a sign-off is a sign-off — but one exchange is one data point, and the difference between a pattern and a bad evening is the number of times it happens.`,
+      suggestedNext: "Wait for one more exchange before drawing a conclusion from this one.",
+      weight: 20,
+    },
+    {
       id: "neutral",
       title: "Nothing unusual is happening",
       body: "The markers that would distinguish one reading from another are largely absent. That is a real finding, not a failure to find one.",
       suggestedNext: "Reply as you normally would.",
-      weight: 15,
-    });
+      weight: 16,
+    },
+    {
+      id: "offscreen",
+      title: "The explanation isn't in the text",
+      body: "Conversations sit on top of everything that happened before them and everything happening around them. Tone of voice, the last time you saw each other, what kind of day it has been — none of that is visible here, and any of it can account for the whole pattern above.",
+      suggestedNext: "Weigh this against what you already know about them, which is more evidence than this app has.",
+      weight: 14,
+    },
+  ];
+  for (const g of GENERICS) {
+    if (candidates.length >= 3) break;
+    candidates.push(g);
   }
 
   return normalise(candidates.slice(0, 5));
 }
 
 /** Enforce the schema: cap at 60, sum to exactly 100, keep the charitable read. */
-function normalise(list: Candidate[]): Interpretation[] {
+export function normalise(list: Candidate[]): Interpretation[] {
   const total = list.reduce((a, c) => a + c.weight, 0) || 1;
   let scaled = list.map((c) => ({ ...c, weight: (c.weight / total) * 100 }));
 
-  // no single read may dominate — redistribute the excess
   const over = scaled.filter((c) => c.weight > MAX_SINGLE);
   if (over.length) {
     const excess = over.reduce((a, c) => a + (c.weight - MAX_SINGLE), 0);
@@ -160,37 +315,81 @@ function normalise(list: Candidate[]): Interpretation[] {
       body: c.body,
       charitable: Boolean(c.charitable),
       suggestedNext: c.suggestedNext,
+      quotes: (c.quotes ?? []).filter(Boolean).slice(0, 2),
     }))
     .sort((a, b) => b.weight - a.weight);
 }
 
 /** "What wasn't said" — absences are as informative as presences. */
-export function whatWasntSaid(cats: CategoryScore[], t: Transcript): string[] {
+export function whatWasntSaid(cats: CategoryScore[], t: Transcript, s: SignalSummary): string[] {
   const out: string[] = [];
   const themText = t.messages
     .filter((m) => m.speaker === "them")
     .map((m) => m.text)
     .join(" ")
     .toLowerCase();
+  const themTurns = s.turns.filter((x) => x.speaker === "them");
 
+  const unreturned = s.bids.filter(
+    (b) => b.by === "you" && b.kind !== "question" && b.response !== "toward"
+  );
+  for (const b of unreturned.slice(0, 1)) {
+    out.push(
+      `${BID_LABEL[b.kind].replace(/^a /, "The ").replace(/^an /, "The ")} you made isn't returned or picked up — nothing in their reply refers back to it.`
+    );
+  }
+
+  if (themTurns.length && themTurns.every((x) => !x.refersToOther)) {
+    out.push(
+      "Once fixed politeness phrases are set aside, their messages contain no reference to you at all — no “you”, no “your”, nothing pointed your way."
+    );
+  }
   if (!/\b(sorry|apolog)/.test(themText) && get(cats, "pressure") >= 30)
     out.push("No acknowledgement or apology appears anywhere in their messages.");
-  if (!/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|\d{1,2}(am|pm)|next week)\b/.test(themText))
-    out.push("No specific day or time is proposed on their side — every reference to the future is open-ended.");
-  if (!/\?/.test(themText))
-    out.push("They asked nothing back across the whole exchange.");
-  if (!/\b(i feel|i felt|i think|i want|i need)\b/.test(themText))
+  if (
+    !/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|tonight|\d{1,2}(am|pm)|next week)\b/.test(
+      themText
+    )
+  )
+    out.push("No specific day or time is proposed on their side — nothing points past this conversation.");
+  if (!/\?/.test(themText)) out.push("They asked nothing back across the whole exchange.");
+  if (!/\b(i feel|i felt|i think|i want|i need|i'?m)\b/.test(themText))
     out.push("They state no position of their own — no wants, no needs, no view.");
-  if (get(cats, "engagement") < 40 && !/\b(busy|work|swamped|sick|travel)\b/.test(themText))
-    out.push("The brevity is never explained — no reason is offered for the shorter replies.");
+  if (get(cats, "engagement") < 40 && !/\b(busy|work|swamped|sick|travel|tired|bed|sleep)\b/.test(themText))
+    out.push("The brevity is never explained — no reason is offered for the shorter reply.");
 
   return out.slice(0, 4);
 }
 
 /** PREMIUM Coach — options, never commands, always tied to evidence. */
-export function buildCoach(cats: CategoryScore[]): { action: string; reasoning: string; evidenceMessageId?: string }[] {
-  const out: { action: string; reasoning: string; evidenceMessageId?: string }[] = [];
+export function buildCoach(cats: CategoryScore[], s: SignalSummary): CoachOut[] {
+  const out: CoachOut[] = [];
   const find = (id: string) => cats.find((c) => c.id === id);
+
+  if (s.softClose) {
+    const bid = s.bids.find((b) => b.by === "you" && b.response === "minimal");
+    out.push({
+      action: "You could let the next move be theirs.",
+      reasoning:
+        "You have just put something warm on the table and it was received rather than picked up. Adding another message on top of it makes the next reply a response to your persistence instead of to the compliment — which destroys the only clean signal you were going to get. Waiting is not a tactic here; it is the only way to actually find out.",
+      evidenceMessageId: bid?.responseMessageId ?? undefined,
+    });
+    out.push({
+      action: "If you do write again, make it about something other than the compliment.",
+      reasoning:
+        "Re-raising it asks them to grade your feelings, which almost nobody answers honestly. A neutral opening on a different subject gives them a way back in that costs them nothing to take.",
+    });
+  }
+
+  // Coach optimises the USER's conduct, so the first thing it looks at is
+  // the user's conduct.
+  if (s.longestRun.you >= 3) {
+    out.push({
+      action: `You could send one message and stop, rather than ${s.longestRun.you}.`,
+      reasoning:
+        "A run of unanswered messages changes what the other person is replying to: they are now responding to the pile, not to the thing you actually wanted an answer about. One message leaves the signal clean and leaves you something to read.",
+    });
+  }
 
   const evasionCat = find("evasion");
   if (evasionCat && evasionCat.percent >= 40) {
@@ -203,7 +402,7 @@ export function buildCoach(cats: CategoryScore[]): { action: string; reasoning: 
   }
 
   const engagementCat = find("engagement");
-  if (engagementCat && engagementCat.percent < 40) {
+  if (engagementCat && engagementCat.percent < 40 && !s.softClose) {
     out.push({
       action: "You could stop initiating for a stretch and let them come to you.",
       reasoning:
@@ -241,4 +440,10 @@ export function buildCoach(cats: CategoryScore[]): { action: string; reasoning: 
   }
 
   return out.slice(0, 4);
+}
+
+interface CoachOut {
+  action: string;
+  reasoning: string;
+  evidenceMessageId?: string;
 }

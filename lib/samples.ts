@@ -16,6 +16,20 @@ export interface Sample {
 
 export const SAMPLES: Sample[] = [
   {
+    // Eleven words, and the engine has plenty to say about them. This card
+    // exists because it is the clearest demonstration of what v2 does that a
+    // word-counting engine cannot: nothing here is negative, nothing is
+    // hedged, and the structure is unmistakable.
+    id: "polite-close",
+    label: "Two lines",
+    blurb:
+      "A compliment, and a polite goodbye. Nothing negative in it anywhere — and eleven words is enough to read.",
+    context: "dating",
+    youName: "You",
+    text: `You: You looked amazing today
+Them: thank you, good night!`,
+  },
+  {
     id: "dating-fade",
     label: "The slow fade",
     blurb: "Warm words, no dates attached. What the phrasing is actually doing.",

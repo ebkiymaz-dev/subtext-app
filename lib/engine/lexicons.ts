@@ -1,6 +1,12 @@
 // PATTERN LEXICONS — the deterministic half of the engine.
 // Each entry is a phrase or regex plus the plain-English reason it matters.
 // These produce the EVIDENCE that makes every score citable (Law 2).
+//
+// v2 note: the lexicons below stopped being "sentiment word lists" and became
+// MOVE detectors. A move is a thing a turn DOES — opens, closes, invites,
+// defers, reciprocates, raises the register. Counting sentiment words is what
+// made v1 report 49% for everything; reading moves is what lets a two-line
+// exchange produce a sharp, defensible read.
 
 export interface Pattern {
   re: RegExp;
@@ -18,15 +24,155 @@ export const HEDGES: Pattern[] = [
   p("\\b(i think|i feel like|i mean)\\b", "epistemic hedge"),
 ];
 
+/** Amplifiers. Density matters: high intensifier use marks investment or strain. */
+export const INTENSIFIERS: Pattern[] = [
+  p("\\b(so|really|very|super|totally|absolutely|completely|incredibly|insanely|massively|genuinely|literally|seriously)\\b", "intensifier — raises the emotional temperature of the claim"),
+  p("\\b(soo+|reallyy+|yesss+|omg|ahh+)\\b", "elongation — spontaneous emphasis"),
+  p("!{2,}", "repeated exclamation"),
+];
+
+/** Downtoners. The mirror image: they cool a claim down. */
+export const DIMINISHERS: Pattern[] = [
+  p("\\b(a little|slightly|barely|hardly|just about|more or less|i guess so|sort of fine)\\b", "downtoner — cools the claim"),
+];
+
 export const DISTANCING: Pattern[] = [
   p("\\b(that person|the situation|things happened|it happened|whatever happened)\\b", "distancing language avoids naming the actor"),
   p("\\b(as i said|like i said|i already told you)\\b", "closing down the topic rather than answering it"),
 ];
 
 export const WARMTH: Pattern[] = [
-  p("\\b(miss you|love you|thank you so much|appreciate you|proud of you|glad|happy for you|thinking of you|means a lot)\\b", "explicit warmth"),
+  p("\\b(miss you|love you|thank you so much|appreciate you|proud of you|glad|happy for you|thinking of you|means a lot|made my day)\\b", "explicit warmth"),
   p("\\b(can't wait|cant wait|excited|looking forward)\\b", "anticipation toward the other person"),
-  p("(❤️|🥰|😊|😍|🤗)", "affectionate emoji"),
+  p("(❤️|🥰|😊|😍|🤗|💕|😘|🥹)", "affectionate emoji"),
+];
+
+/**
+ * DISTANCE markers. Not coldness — *register*. These are the phrasings people
+ * reach for when they want to be correct rather than close: agreeable,
+ * unobjectionable, and carrying no invitation.
+ */
+export const DISTANCE: Pattern[] = [
+  p("\\b(no worries|it's fine|its fine|that's fine|thats fine|all good|no problem|whatever works|if you want|up to you|as you like|either way)\\b", "agreeable but non-committal — accepts without inviting"),
+  p("\\b(hope you('re| are) well|hope all is well|best wishes|all the best|take care)\\b", "correct rather than close — the register of an acquaintance"),
+  p("\\b(ok|okay|k|kk|cool|sure|alright|right|noted|understood|received|fair enough|got it)\\s*[.!]?$", "terminal acknowledgement — receives the message without extending it"),
+];
+
+/**
+ * FULL-FORM POLITENESS. This is the load-bearing v2 lexicon.
+ *
+ * "thanks" and "thank you" mean the same thing and do completely different
+ * work. The contracted form is intimate register; the full form is formal
+ * register. When someone answers warmth with the FULL form, they have chosen
+ * — usually without thinking about it — to answer in a more distant register
+ * than the one they were addressed in. That asymmetry is one of the most
+ * reliable soft-signals in text, and v1 could not see it at all.
+ */
+export const POLITENESS_FULL: Pattern[] = [
+  p("\\bthank you\\b", "full-form thanks — the formal register of the pair (compare “thanks”)"),
+  p("\\bgood night\\b", "full-form sign-off (compare “night”)"),
+  p("\\bgood (morning|evening|afternoon)\\b", "full-form greeting"),
+  p("\\byou'?re welcome\\b", "formal acknowledgement"),
+  p("\\b(that'?s very kind|i appreciate (it|that)|much appreciated|very kind of you)\\b", "formal appreciation — completes the exchange rather than extending it"),
+  p("\\b(my apologies|i do apologise|i do apologize|kindly|please do|regards|sincerely)\\b", "raised register"),
+];
+
+/** The intimate-register counterparts. Their presence lowers formality. */
+export const POLITENESS_CASUAL: Pattern[] = [
+  p("\\b(thanks|thx|ty|tysm|cheers|np|nps)\\b", "contracted thanks — intimate register"),
+  p("\\b(night|nite|gnight|nini|morning)\\s*[!x]*$", "contracted sign-off — intimate register"),
+  p("\\b(hey|yo|heyy+|hiya|sup)\\b", "informal greeting"),
+];
+
+/**
+ * CLOSING MOVES — a turn that works to end the exchange.
+ * Distinguished from mere brevity: a short answer continues a conversation,
+ * a sign-off retires it.
+ */
+export const CLOSING_MOVES: Pattern[] = [
+  p("\\b(good ?night|goodnight|gnight|nite|night)\\b\\s*[!.…]*$", "sign-off — retires the conversation for the night"),
+  p("\\b(bye|byee+|goodbye|see you|see ya|cya|ttyl|talk (to you )?(later|soon)|catch you later|later!|speak soon)\\b", "explicit farewell"),
+  p("\\b(take care|sleep well|sweet dreams|have a good (one|night|evening|day)|enjoy your (night|evening|weekend))\\b", "valedictory formula"),
+  p("\\b(gotta go|got to go|heading (to bed|off|out)|i'?m off|going to sleep|off to bed|need to sleep|calling it a night)\\b", "states an exit"),
+  p("\\b(anyway,? (that'?s|thats) (it|all)|that'?s everything|nothing else|we'?ll (speak|talk) (then|later)|let'?s (leave|park) it (there|here))\\b", "wraps the topic up"),
+  p("\\b(monday is fine|we'?ll cover it|we'?ll discuss (it )?(then|monday)|let'?s discuss)\\b", "defers the topic out of the current exchange"),
+];
+
+/**
+ * CONTINUATION BIDS — a turn that hands the floor back.
+ * The mirror of a closing move, and the reason "closing vs continuing" is a
+ * single axis rather than two unrelated counts.
+ */
+export const CONTINUATION_BIDS: Pattern[] = [
+  p("\\b(what about you|how about you|wbu|hbu|and you\\?|you\\?)", "returns the floor explicitly"),
+  p("\\b(tell me more|say more|go on|what happened|how come|and then|what did .{0,20}say)\\b", "asks for elaboration"),
+  p("\\b(are you free|when are you|want to|wanna|shall we|should we|let'?s|how about (we|tomorrow|tonight)|are you around)\\b", "proposes a next step"),
+  p("\\b(also|btw|by the way|oh and|one more thing|speaking of)\\b", "opens an additional thread"),
+  p("\\b(tomorrow|tonight|this (weekend|week)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week)\\b", "anchors the future to a specific point"),
+];
+
+/**
+ * AFFIRMATION PARTICLES. A turn that opens with one of these is ANSWERING,
+ * even when it shares no vocabulary with the question.
+ *
+ * This lexicon exists because of a false negative the eval caught: "are we
+ * still on for 7?" / "yep! I'll be there about 6.50" has zero content-word
+ * overlap, and a topic-overlap test alone scored a perfectly healthy exchange
+ * as disengaged. Answering is not always echoing.
+ */
+export const AFFIRM: Pattern[] = [
+  p("^\\W*(oh\\s+)?(yep|yeah|yes|yup|yah|sure|absolutely|of course|definitely|certainly|will do|sounds? like a plan)\\b", "turn-initial affirmative — this is an answer, not a change of subject"),
+];
+
+/** Commitment language: a turn that takes on an action is engaging with it. */
+export const COMMITMENT: Pattern[] = [
+  p("\\b(i'?ll|i will|i can|i'?m going to|i'?ve booked|i'?ll book|i'?ll be there|i'?ll grab|count me in|see you there)\\b", "commits to an action — uptake, not deflection"),
+];
+
+/**
+ * FUTURE ANCHORS — a specific point in time, not a vague gesture at one.
+ * "Thursday" and "8pm" are anchors; "this week" and "soon" are not, which is
+ * exactly the distinction a fade depends on. Kept separate from
+ * CONTINUATION_BIDS because that list is deliberately looser.
+ */
+export const FUTURE_ANCHOR: Pattern[] = [
+  p("\\b(tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week|next month)\\b", "a specific point in the future"),
+  p("\\b(\\d{1,2}\\s?(am|pm)|at \\d{1,2}(:\\d{2})?|\\d{1,2}:\\d{2})\\b", "a specific time"),
+  p("\\b(i'?ll book|i'?ve booked|i'?ll sort|let'?s say)\\b", "commits to arranging it"),
+];
+
+/** BIDS FOR CONNECTION — Gottman's unit. Each kind is detected separately. */
+export const BID_COMPLIMENT: Pattern[] = [
+  p("\\byou (look|looked|are|were|seem|seemed)\\s+(so\\s+|really\\s+|absolutely\\s+|very\\s+)?(amazing|beautiful|gorgeous|stunning|lovely|great|good|incredible|handsome|pretty|cute|radiant|wonderful|fantastic)\\b", "a compliment — a bid for connection, and one of the highest-stakes kinds"),
+  p("\\b(i love your|i really like your|you'?re so (good|clever|funny|kind|talented|smart)|you'?re the (best|sweetest)|that was (brilliant|amazing|so good))\\b", "praise directed at the other person"),
+  p("\\b(you (did|were) (great|amazing|brilliant|so well)|proud of you|well done)\\b", "praise for something they did"),
+];
+
+export const BID_AFFECTION: Pattern[] = [
+  p("\\b(miss you|love you|thinking of you|thinking about you|wish you were here|can'?t stop thinking)\\b", "an affection bid — the most exposed kind there is"),
+];
+
+export const BID_INVITATION: Pattern[] = [
+  p("\\b(are you free|want to (meet|grab|get|go|come)|wanna (meet|grab|get|go|come)|shall we|let'?s (meet|grab|get|go|do)|same again|do you want to|fancy a|dinner|drinks|coffee)\\b", "an invitation — a bid with a concrete cost attached"),
+];
+
+export const BID_SELF_DISCLOSURE: Pattern[] = [
+  p("\\b(i'?ve been (feeling|struggling|thinking|worried)|i feel|i felt|i'?m (worried|nervous|scared|upset|hurt|sad|lonely)|to be honest,? i|i wanted to tell you|it'?s been hard)\\b", "self-disclosure — a bid that asks to be met, not solved"),
+];
+
+export const BID_NEWS: Pattern[] = [
+  p("\\b(guess what|you'?ll never guess|i (just )?got|i finally|big news|i passed|i got the|it happened)\\b", "shared news — a bid to be celebrated with"),
+];
+
+export const BID_HELP: Pattern[] = [
+  p("\\b(can you|could you|would you mind|do you think you could|any chance you|i need a hand|help me)\\b", "a request — a bid with an ask attached"),
+];
+
+/** ENTHUSIASM — the marker set, so we can ask WHERE it lands, not just whether it exists. */
+export const ENTHUSIASM: Pattern[] = [
+  p("!+", "exclamation"),
+  p("\\b(yes+|yay+|woo+|omg|amazing|awesome|brilliant|love it|so good|can'?t wait|cant wait|excited)\\b", "enthusiasm word"),
+  p("(😄|😁|🤣|😂|🔥|🎉|😍|🥳|💯)", "high-arousal emoji"),
 ];
 
 export const IRRITATION: Pattern[] = [
@@ -57,9 +203,11 @@ export const WE_LANGUAGE: Pattern[] = [p("\\b(we|us|our|ours)\\b", "shared-frame
 
 export const SELF_REFERENCE: Pattern[] = [p("\\b(i|me|my|mine|myself)\\b", "self-reference")];
 
+export const OTHER_REFERENCE: Pattern[] = [p("\\b(you|your|yours|u|ur)\\b", "second-person reference")];
+
 export const DEFLECTION: Pattern[] = [
   p("\\b(anyway|but anyway|moving on|changing the subject|let's not|lets not|can we not)\\b", "topic redirection"),
-  p("\\b(why does it matter|why are you asking|what about you|what about when you)\\b", "returning the question instead of answering it"),
+  p("\\b(why does it matter|why are you asking|what about when you)\\b", "returning the question instead of answering it"),
 ];
 
 export const PERFORMATIVE: Pattern[] = [
@@ -97,6 +245,43 @@ export const PROFESSIONAL: Pattern[] = [
   p("\\b(regards|kind regards|best,|please find|kindly|scheduled|action items?|deliverable|stakeholders?)\\b", "formal register"),
 ];
 
+/**
+ * FIXED POLITENESS PHRASES that contain a second-person pronoun but carry no
+ * actual reference to the person. Stripped before we ask "does this reply
+ * mention the other person at all?" — otherwise "thank you" scores as
+ * attentiveness, which is precisely backwards.
+ */
+export const FIXED_POLITE_PHRASES = [
+  "thank you",
+  "thanks",
+  "you're welcome",
+  "youre welcome",
+  "see you",
+  "take care",
+  "bless you",
+  "excuse me",
+  "how are you",
+  "hope you're well",
+  "hope youre well",
+];
+
+/**
+ * FUNCTION-WORD FAMILIES for Language Style Matching. LSM is computed over
+ * function words only, on purpose: content words tell you what a conversation
+ * is about, function words tell you how in step the two people are.
+ */
+export const FUNCTION_WORD_FAMILIES: Record<string, string[]> = {
+  personalPronouns: ["i", "me", "my", "mine", "myself", "we", "us", "our", "you", "your", "yours", "he", "she", "they", "them", "his", "her", "their"],
+  impersonalPronouns: ["it", "its", "this", "that", "these", "those", "which", "what", "anything", "something", "nothing", "everything"],
+  articles: ["a", "an", "the"],
+  prepositions: ["of", "in", "to", "for", "with", "on", "at", "from", "by", "about", "into", "over", "after", "under", "between"],
+  auxiliaryVerbs: ["am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "can", "could", "should", "might", "must"],
+  conjunctions: ["and", "but", "or", "so", "because", "if", "when", "while", "although", "though", "as"],
+  negations: ["no", "not", "never", "none", "cant", "cannot", "dont", "wont", "isnt", "wasnt", "didnt", "nothing"],
+  quantifiers: ["all", "some", "any", "most", "much", "many", "few", "lot", "lots", "more", "less"],
+  adverbs: ["very", "really", "just", "so", "too", "quite", "also", "still", "even", "always", "never", "here", "there", "now", "then"],
+};
+
 /** Count matches for a lexicon across a text, returning the matched spans. */
 export function matchAll(text: string, patterns: Pattern[]): { span: string; why: string }[] {
   const out: { span: string; why: string }[] = [];
@@ -109,4 +294,9 @@ export function matchAll(text: string, patterns: Pattern[]): { span: string; why
     }
   }
   return out;
+}
+
+/** First match only — used where one citable span is enough. */
+export function firstMatch(text: string, patterns: Pattern[]): { span: string; why: string } | null {
+  return matchAll(text, patterns)[0] ?? null;
 }
