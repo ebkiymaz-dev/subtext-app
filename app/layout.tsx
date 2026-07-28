@@ -11,7 +11,14 @@ export const metadata: Metadata = {
   manifest: `${BASE_PATH}/manifest.json`,
   applicationName: "Subtext",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Subtext" },
-  icons: { icon: [{ url: `${BASE_PATH}/icon.svg`, type: "image/svg+xml" }], apple: [{ url: `${BASE_PATH}/icon.svg` }] },
+  // iOS ignores an SVG apple-touch-icon, so ship a real 180px PNG for it.
+  icons: {
+    icon: [
+      { url: `${BASE_PATH}/icon.svg`, type: "image/svg+xml" },
+      { url: `${BASE_PATH}/favicon-32.png`, sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: `${BASE_PATH}/apple-touch-icon.png`, sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
