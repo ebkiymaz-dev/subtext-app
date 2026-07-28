@@ -1,0 +1,26 @@
+{
+  "name": "Subtext — read between the lines, honestly",
+  "short_name": "Subtext",
+  "description": "Paste a conversation and see which markers the language carries, with the evidence and the competing readings underneath.",
+  "start_url": "/subtext/",
+  "display": "standalone",
+  "background_color": "#FAF7F2",
+  "theme_color": "#FAF7F2",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/subtext/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/subtext/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "scope": "/subtext/",
+  "id": "/subtext/"
+}

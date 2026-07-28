@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -34 530 184" width="530" height="184"
+     role="img" aria-label="Subtext">
+  <title>Subtext</title>
+  <rect x="-40" y="-34" width="530" height="184" fill="#B08D3F"/>
+  <g fill="none" stroke="#1F1D1A" stroke-linejoin="round">
+    <!-- "Sub" — fine monoline script, slanted 11deg. -->
+    <g stroke-width="7.5" stroke-linecap="round" transform="translate(18,0) skewX(-11)">
+      <path d="M88 18 C86 25 81 30 74 32"/>
+      <path d="M74 32 C70 16 50 10 36 20 C22 30 30 46 48 56 C68 67 76 82 68 94 C58 108 28 106 16 90"/>
+      <path d="M94 56 C92 78 94 100 106 100 C118 100 124 82 126 56 C126 80 126 96 131 102 C136 108 144 105 150 98"/>
+      <path d="M162 104 C162 74 166 40 176 24 C182 14 192 14 192 26 C192 40 176 52 164 62 C176 54 192 54 197 66 C203 80 194 100 176 104 C168 106 162 102 163 96"/>
+    </g>
+    <!-- "text" — classic serif, monoline stems with bracketed serif ticks. -->
+    <g stroke-width="9" stroke-linecap="butt">
+      <g transform="translate(224,0)">
+        <path d="M18 22 V86 C18 97 27 102 38 97"/>
+        <path d="M2 44 H38"/>
+      </g>
+      <g transform="translate(276,0)">
+        <path d="M44 90 C40 97 34 100 26 100 C13 100 4 90 4 77 C4 64 13 54 26 54 C38 54 46 63 46 76 H4"/>
+      </g>
+      <g transform="translate(336,0)">
+        <path d="M8 54 L44 100"/>
+        <path d="M44 54 L8 100"/>
+        <path d="M0 54 H18"/>
+        <path d="M34 54 H52"/>
+        <path d="M0 100 H18"/>
+        <path d="M34 100 H52"/>
+      </g>
+      <g transform="translate(396,0)">
+        <path d="M18 22 V86 C18 97 27 102 38 97"/>
+        <path d="M2 44 H38"/>
+      </g>
+    </g>
+  </g>
+</svg>
