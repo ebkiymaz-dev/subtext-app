@@ -1,8 +1,8 @@
 // Subtext — minimal offline shell. No analytics, no third-party requests,
 // and no caching of anything you paste (the app never persists raw text).
 const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
-const CACHE = "subtext-shell-v2";
-const SHELL = [BASE + "/", BASE + "/plans", BASE + "/manifest.json", BASE + "/icon.svg"];
+const CACHE = "subtext-shell-v3";
+const SHELL = [BASE + "/", BASE + "/plans", BASE + "/manifest.webmanifest", BASE + "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

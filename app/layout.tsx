@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Subtext — read between the lines, honestly",
   description:
     "Paste a conversation and see which markers the language carries, with the evidence and the competing readings underneath. Possibilities, never verdicts.",
-  manifest: `${BASE_PATH}/manifest.json`,
+  manifest: `${BASE_PATH}/manifest.webmanifest`,
   applicationName: "Subtext",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Subtext" },
   // iOS ignores an SVG apple-touch-icon, so ship a real 180px PNG for it.
