@@ -3,11 +3,17 @@
 // dating toy) → distress LAST, as the closer. Showing that the product knows
 // when to STOP is what earns the right to be trusted with private messages.
 
+import type { ContextId, FamiliarityId } from "./engine/types";
+
 export interface Sample {
   id: string;
   label: string;
   blurb: string;
-  context: "dating" | "work" | "family" | "friendship" | "other";
+  context: ContextId;
+  /** every sample carries a plausible history, because the engine now reads
+   *  register against it — a sample with no familiarity would be tuned by a
+   *  default the user never chose. */
+  familiarity: FamiliarityId;
   youName: string;
   text: string;
   /** true = this sample deliberately trips the crisis-safety screen */
@@ -21,6 +27,7 @@ export const SAMPLES: Sample[] = [
     // word-counting engine cannot: nothing here is negative, nothing is
     // hedged, and the structure is unmistakable.
     id: "polite-close",
+    familiarity: "days",
     label: "Two lines",
     blurb:
       "A compliment, and a polite goodbye. Nothing negative in it anywhere — and eleven words is enough to read.",
@@ -31,6 +38,7 @@ Them: thank you, good night!`,
   },
   {
     id: "dating-fade",
+    familiarity: "months",
     label: "The slow fade",
     blurb: "Warm words, no dates attached. What the phrasing is actually doing.",
     context: "dating",
@@ -48,6 +56,7 @@ Sam: sounds good, one of these days for sure`,
   },
   {
     id: "terse-boss",
+    familiarity: "year",
     label: "The terse message from your boss",
     blurb: "Four words on a Friday afternoon. Work context changes what matters.",
     context: "work",
@@ -65,6 +74,7 @@ Dana: Monday is fine. Regards.`,
   },
   {
     id: "care-path",
+    familiarity: "five_years",
     label: "The 2am message",
     blurb:
       "The closer. When the language carries acute-distress markers, Subtext stops analysing and shows resources instead.",
@@ -80,6 +90,7 @@ Jamie: I don't want to be a burden, nothing matters anyway`,
   },
   {
     id: "family-guilt",
+    familiarity: "lifetime",
     label: "The family ask",
     blurb: "Obligation framing, and the limit that keeps being worked around.",
     context: "family",

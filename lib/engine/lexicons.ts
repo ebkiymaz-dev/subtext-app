@@ -246,6 +246,44 @@ export const PROFESSIONAL: Pattern[] = [
 ];
 
 /**
+ * ANCHORING AND LEVERAGE — the negotiation context.
+ *
+ * These are not sentiment. They are the four standard moves for shifting a
+ * counterparty's reference point: put a number down first, cap it, invent
+ * competition, invent a clock. Naming them is useful precisely because they
+ * work on people who cannot see them.
+ */
+export const ANCHORING: Pattern[] = [
+  p("\\b(best (i|we) can do|final offer|take it or leave it|that'?s my (last|final)|non-?negotiable|firm (on|at))\\b", "commitment tactic — the number is framed as fixed"),
+  p("\\b(i (have|'ve) (got )?(other|another) (offers?|buyers?|interested|people)|someone else is (interested|coming)|several people (want|are))\\b", "manufactured competition — raises your sense of scarcity"),
+  p("\\b(only (today|until)|offer (expires|ends)|by (end of|close of) (day|business|play)|need an answer (today|by)|this (deal|price) (won'?t|wont) last)\\b", "manufactured clock — compresses your time to think"),
+  p("\\b(ballpark|starting at|around \\$?[0-9]|somewhere in the region|we were thinking (about )?\\$?[0-9])\\b", "opening anchor — the first number spoken sets the range"),
+  p("\\b(meet (you )?in the middle|split the difference|throw in|sweeten)\\b", "concession framing"),
+];
+
+/**
+ * COMMITMENT SPECIFICITY — the marketplace / logistics contexts.
+ *
+ * The only question that matters when two people are arranging a real-world
+ * thing is whether the message contains a number, a time and a place. This
+ * lexicon is deliberately split: presence of CONCRETE is the good signal,
+ * presence of VAGUE where CONCRETE was requested is the bad one.
+ */
+export const CONCRETE_COMMITMENT: Pattern[] = [
+  p("\\b([01]?[0-9]|2[0-3])[:.][0-5][0-9]\\b", "an actual clock time"),
+  p("\\b([0-9]{1,2})\\s?(am|pm)\\b", "an actual clock time"),
+  p("\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|tonight|today)\\b", "a named day"),
+  p("[£$€]\\s?[0-9][0-9,.]*", "an actual figure"),
+  p("\\b(i can (do|be there|make it)|i'?ll be there|see you (at|on)|address is|postcode|zip)\\b", "a commitment with an actor and a time attached"),
+];
+
+export const VAGUE_COMMITMENT: Pattern[] = [
+  p("\\b(sometime|some point|later (today|this week)?|soon|shortly|in a bit|when i(')?m free|when i can|let me get back|i'?ll let you know|i'?ll check)\\b", "a commitment with no time attached"),
+  p("\\b(interested|still available\\??|is (this|it) still)\\b", "an enquiry that commits to nothing"),
+  p("\\b(what'?s your best price|open to offers|make me an offer|whats your lowest)\\b", "price probe with no figure offered in return"),
+];
+
+/**
  * FIXED POLITENESS PHRASES that contain a second-person pronoun but carry no
  * actual reference to the person. Stripped before we ask "does this reply
  * mention the other person at all?" — otherwise "thank you" scores as

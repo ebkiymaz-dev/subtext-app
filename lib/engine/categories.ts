@@ -30,12 +30,16 @@ import type {
   CategoryId, CategoryScore, ContextId, Evidence, Message, SignalSummary, Transcript,
 } from "./types";
 import {
-  ACCOUNTABILITY_SHIFT, BOUNDARY_PRESSURE, CLOSING_MOVES, CONTINUATION_BIDS, DEADLINE_PRESSURE,
-  DEFLECTION, DISTANCE, DISTANCING, ENTHUSIASM, FADE, FUTURE_ANCHOR, GUILT, HEDGES, INTENSIFIERS,
-  IRRITATION, PERFORMATIVE, POLITENESS_FULL, PRESSURE, PROFESSIONAL, SELF_REFERENCE, STRESS,
-  WARMTH, matchAll, type Pattern,
+  ACCOUNTABILITY_SHIFT, ANCHORING, BOUNDARY_PRESSURE, CLOSING_MOVES, CONCRETE_COMMITMENT,
+  CONTINUATION_BIDS, DEADLINE_PRESSURE, DEFLECTION, DISTANCE, DISTANCING, ENTHUSIASM, FADE,
+  FUTURE_ANCHOR, GUILT, HEDGES, INTENSIFIERS, IRRITATION, PERFORMATIVE, POLITENESS_FULL, PRESSURE,
+  PROFESSIONAL, SELF_REFERENCE, STRESS, VAGUE_COMMITMENT, WARMTH, matchAll, type Pattern,
 } from "./lexicons";
 import { BID_LABEL, bidsMetScore, isQuestion, wordCount } from "./signals";
+import {
+  formalityExcess, registerCaveat, registerNarrative, resolveProfile,
+  type RelationshipProfile,
+} from "./relationship";
 
 // Law 1 consequence: this panel reports CONFIDENCE, and 100% confidence in a
 // read of someone's text is never honest. 92 is the hard ceiling.
@@ -69,6 +73,8 @@ interface Ctx {
   youText: string;
   s: SignalSummary;
   context: ContextId;
+  /** the context × familiarity weighting — see relationship.ts */
+  p: RelationshipProfile;
 }
 
 function gather(msgs: Message[], patterns: Pattern[], why?: string): Evidence[] {
@@ -110,20 +116,21 @@ export function unansweredQuestions(all: Message[]): Message[] {
   return out;
 }
 
-const CONTEXT_POOLS: Record<ContextId, CategoryId[]> = {
-  dating: ["fade_markers"],
-  work: ["professionalism", "deadline_pressure", "accountability_shift"],
-  family: ["guilt", "boundary_pressure"],
-  friendship: ["fade_markers"],
-  other: [],
-};
+// The per-context extra categories now live on the context spec in
+// relationship.ts, next to the weights they belong with — one place to look
+// when adding a context, rather than two that can drift apart.
 
 const CORE: CategoryId[] = [
   "engagement", "warmth_distance", "closure", "bid_response", "reciprocity", "mirroring",
   "affect", "sincerity", "power", "evasion", "subtext_load", "pressure", "stress", "attachment",
 ];
 
-export function scoreCategories(t: Transcript, context: ContextId, s: SignalSummary): CategoryScore[] {
+export function scoreCategories(
+  t: Transcript,
+  context: ContextId,
+  s: SignalSummary,
+  profile: RelationshipProfile = resolveProfile(context, "year")
+): CategoryScore[] {
   const all = t.messages;
   const them = all.filter((m) => m.speaker === "them");
   const you = all.filter((m) => m.speaker === "you");
@@ -135,9 +142,10 @@ export function scoreCategories(t: Transcript, context: ContextId, s: SignalSumm
     youText: you.map((m) => m.text).join(" "),
     s,
     context,
+    p: profile,
   };
 
-  const selected = new Set<CategoryId>([...CORE, ...CONTEXT_POOLS[context]]);
+  const selected = new Set<CategoryId>([...CORE, ...profile.pool]);
   return (
     ALL_BUILDERS.filter((b) => selected.has(b.id))
       .map((b) => b.build(ctx))
@@ -228,7 +236,11 @@ const ALL_BUILDERS: Builder[] = [
     id: "closure",
     build: (c) => {
       const { closingIndex, continuationIndex, lastSpeaker } = c.s;
-      const value = clamp01(closingIndex - continuationIndex * 0.45);
+      // A sign-off is categorical, so the raw shape is not discounted — but
+      // how much it is allowed to MEAN is. Ending a marketplace message with
+      // "cheers" is the protocol; ending a message to your sister that way is
+      // not the protocol, because there isn't one.
+      const value = clamp01((closingIndex - continuationIndex * 0.45) * c.p.closureWeight);
       const lastTurn = c.s.turns[c.s.turns.length - 1];
       const lastMsg = c.all[c.all.length - 1];
       const closerSpan = lastMsg ? matchAll(lastMsg.text, CLOSING_MOVES)[0]?.span : undefined;
@@ -242,6 +254,8 @@ const ALL_BUILDERS: Builder[] = [
         read = closerSpan
           ? `Their last message ends the exchange${lastTurn && lastTurn.substantiveWords === 0 ? " and contains nothing else" : ""} — “${closerSpan}” is a sign-off, not a reply that expects one back.`
           : "Their last message winds the exchange down rather than handing it back.";
+      } else if (c.p.transactional && closingIndex >= 0.5) {
+        read = `The exchange is being wound down, which in a ${c.p.contextLabel.toLowerCase()} exchange usually means the business of it is finished rather than that anyone is withdrawing. This is scored at reduced weight for that reason.`;
       } else if (value >= 0.55) {
         read = "The exchange is being closed down, and you are the one closing it.";
       } else if (continuationIndex >= 0.45) {
@@ -272,46 +286,79 @@ const ALL_BUILDERS: Builder[] = [
   // The register-asymmetry category. Reading the GAP between two people's
   // formality is what lets the engine see a polite reply as distant without
   // ever calling it cold.
+  //
+  // 2026-07-30: this is where the relationship layer earns its keep. The
+  // category used to score raw register asymmetry, which cannot tell apart the
+  // two cases mert's brief names:
+  //
+  //   · a stranger writing formally — the situation's default, meaning nothing
+  //   · someone you have known five years writing formally — a departure from
+  //     a norm that definitely exists, and therefore a choice
+  //
+  // Both produce identical text. The difference is entirely in the baseline,
+  // so the baseline is now subtracted before anything is scored.
   {
     id: "warmth_distance",
     build: (c) => {
       const s = c.s;
+      const p = c.p;
       const tt = themTurns(c);
       const themWarm = tt.reduce((a, x) => a + x.warm, 0);
       const themDistant = tt.reduce((a, x) => a + x.distant, 0);
       const refRate = tt.length ? tt.filter((x) => x.refersToOther).length / tt.length : 0.5;
 
+      // How far their register sits above what THIS pairing prescribes.
+      const excess = formalityExcess(s.themFormality, p);
+      const gap = clamp01(Math.max(0, s.politenessAsymmetry) / 0.45);
+
       let d = 0;
-      d += clamp01(Math.max(0, s.politenessAsymmetry) / 0.45) * 0.3;
-      d += s.softClose ? 0.22 : 0;
-      d += themDistant > themWarm ? 0.12 : themWarm > themDistant ? -0.14 : 0.04;
-      d += (1 - refRate) * 0.16;
+      // Deviation from the relationship's own baseline — the primary term.
+      d += excess * 0.32 * p.registerWeight;
+      // The live gap between the two of you in THIS exchange — secondary, and
+      // still worth something even when the absolute level is unremarkable.
+      d += gap * 0.18 * p.registerWeight;
+      d += s.softClose ? 0.22 * p.closureWeight : 0;
+      d += (themDistant > themWarm ? 0.12 : themWarm > themDistant ? -0.14 : 0.04) * p.warmthWeight;
+      d += (1 - refRate) * 0.16 * p.warmthWeight;
       d += s.enthusiasmOnClosingOnly ? 0.08 : 0;
       const value = clamp01(d);
 
       const pairs = registerPairPhrases(c.themText);
       const parts: string[] = [];
-      if (s.politenessAsymmetry >= 0.15 && pairs.length) {
+
+      // The register sentence is written by the relationship layer, because
+      // the SAME excess has to be described in opposite terms at the two ends
+      // of the familiarity scale.
+      const register = registerNarrative(p, excess, s.politenessAsymmetry, pairs);
+      if (register) parts.push(register);
+
+      // The structural half of this score, which the register sentence above
+      // explicitly disclaims. Leaving it unnarrated is what made the number
+      // and the words disagree.
+      if (s.softClose) {
         parts.push(
-          `They answer in a more formal register than the one you used — ${listOf(pairs)}. Choosing the polite form over the familiar one is one of the quieter ways distance shows up in text.`
+          "Structurally, what you opened was acknowledged and the conversation was ended in the same message — that, rather than the politeness, is most of the bar."
         );
-      } else if (s.politenessAsymmetry >= 0.15) {
-        parts.push("Their register sits noticeably more formal than yours across the exchange.");
       }
-      if (refRate === 0 && tt.length) {
+
+      if (refRate === 0 && tt.length && p.warmthWeight >= 0.5) {
         parts.push("Once the fixed politeness phrases are set aside, their messages never refer to you.");
       }
       if (s.enthusiasmOnClosingOnly) {
         parts.push("The one exclamation mark lands on the sign-off, not on anything they said about you.");
       }
       if (themWarm > themDistant) {
-        parts.push("Explicit warmth markers are present on their side.");
+        parts.push(
+          p.deviation >= 1.15
+            ? "Explicit warmth markers are present on their side — and at this length of history, warmth is the baseline rather than the finding."
+            : "Explicit warmth markers are present on their side."
+        );
       }
       if (!parts.length) {
         parts.push(
           value >= 0.5
             ? "Their side leans toward the agreeable-but-uninviting register: correct, and carrying no opening."
-            : "Register is broadly matched between you; neither side is holding the other at arm's length."
+            : `Register is broadly matched between you, and sits about where a ${p.contextLabel.toLowerCase()} exchange at ${p.familiarityLabel.toLowerCase()} of history would be expected to.`
         );
       }
 
@@ -332,11 +379,10 @@ const ALL_BUILDERS: Builder[] = [
         percent: pct(value),
         read: parts.join(" "),
         tier: "on-device",
-        method: "register asymmetry between the two speakers, plus warmth/distance markers",
+        method: `register measured against the baseline for ${p.contextLabel.toLowerCase()} at ${p.familiarityLabel.toLowerCase()} (expected ${Math.round(p.expectedFormality * 100)}%, observed ${Math.round(s.themFormality * 100)}%), plus the live gap between you`,
         tone: value >= 0.55 ? "caution" : themWarm > themDistant ? "warm" : "neutral",
         evidence,
-        caveat:
-          "Formality is a habit as often as it is a message. Some people write to everyone the same way. What this measures is the GAP between how you wrote and how they answered — and a gap has many causes.",
+        caveat: registerCaveat(p),
       };
     },
   },
@@ -413,10 +459,17 @@ const ALL_BUILDERS: Builder[] = [
       const bonus = s.continuationIndex * 0.08 + refRate * 0.04 + askBack * 0.08;
       let value = base + bonus;
 
-      // Latency, only when the paste actually carried timestamps on both sides.
+      // Latency, only when the paste actually carried timestamps on both sides,
+      // and divided by how tolerant this pairing is of a slow reply. Four hours
+      // from a colleague is a working day; four hours mid-conversation from
+      // someone you have known twenty years is a different object.
       if (s.latency.them !== null && s.latency.you !== null && s.latency.you > 0) {
-        value -= clamp01(s.latency.them / (s.latency.you * 4)) * 0.08;
+        value -= clamp01(s.latency.them / (s.latency.you * 4)) * (0.08 / Math.max(c.p.latencyTolerance, 0.3));
       }
+      // In a transactional context, engagement has a floor: an exchange that
+      // does its job efficiently is not disengaged, and scoring it that way is
+      // the single easiest false positive for a tool like this to produce.
+      if (c.p.transactional) value = Math.max(value, 0.34 + s.uptakeRate * 0.2);
       value = clamp01(value);
 
       const notable = c.them.filter((m) => isQuestion(m.text) || wordCount(m.text) > 18);
@@ -474,11 +527,18 @@ const ALL_BUILDERS: Builder[] = [
       // BALANCE, not share. Reciprocity asks "does this travel both ways", so
       // one side asking every question scores 0 whichever side that is.
       const qBalance = themQ + youQ ? 1 - Math.abs(themQ - youQ) / (themQ + youQ) : 0.5;
-      const value = clamp01((recip ?? qBalance) * 0.7 + qBalance * 0.3);
+      const raw = (recip ?? qBalance) * 0.7 + qBalance * 0.3;
+      // Where reciprocity is not the norm — a listing enquiry, a manager's
+      // reply — an imbalance is structural. Pull the score toward neutral
+      // rather than reporting a deficit that nobody in the exchange perceives.
+      const w = clamp01(c.p.reciprocityWeight);
+      const value = clamp01(raw * w + 0.5 * (1 - w));
 
       const missed = c.s.unreciprocated;
       let read: string;
-      if (missed.length) {
+      if (c.p.reciprocityWeight < 0.55) {
+        read = `Question flow runs ${themQ >= youQ ? "toward you" : "away from you"} (${youQ} from you, ${themQ} from them). In a ${c.p.contextLabel.toLowerCase()} exchange that asymmetry is structural rather than relational, so it is reported and not penalised.`;
+      } else if (missed.length) {
         const kinds = [...new Set(missed)].map((k) => BID_LABEL[k].replace(/^(a|an) /, ""));
         read = `The ${listOf(kinds)} went out and did not come back${themQ === 0 ? ", and nothing was asked in return" : ""}.`;
       } else if (value >= 0.55) {
@@ -988,6 +1048,67 @@ const ALL_BUILDERS: Builder[] = [
       };
     },
   },
+  // ── NEGOTIATION MOVES (business, marketplace) ──────────────
+  // Not sentiment, and deliberately not framed as bad faith. These are the
+  // four standard reference-point tactics; a person can use every one of them
+  // and be entirely straight with you. Naming them is useful because they
+  // work best on people who cannot see them.
+  {
+    id: "anchoring",
+    build: (c) => {
+      const theirs = matchAll(c.themText, ANCHORING);
+      const yours = matchAll(c.youText, ANCHORING);
+      if (!theirs.length && !yours.length) return null;
+      const value = clamp01(theirs.length * 0.27);
+      return {
+        id: "anchoring",
+        label: "Negotiation moves",
+        percent: pct(value),
+        read: theirs.length
+          ? `${theirs.length} reference-point move${theirs.length > 1 ? "s" : ""} on their side${yours.length ? `, and ${yours.length} on yours` : " and none on yours"}. Commitment language, competing-interest claims and manufactured deadlines all work by changing what feels normal before you have priced it yourself.`
+          : `The reference-point moves in this exchange are all yours (${yours.length}). Worth knowing before reading their reply as resistance.`,
+        tier: "on-device",
+        method: "commitment, scarcity, artificial-deadline and opening-anchor detection on both sides",
+        tone: value >= 0.45 ? "caution" : "neutral",
+        evidence: gather(theirs.length ? c.them : c.you, ANCHORING).slice(0, 4),
+        caveat:
+          "Every one of these is a normal, legitimate negotiating move and most people make them without thinking. This flags the structure so you can price the offer rather than the framing — it is not a claim that anyone is being dishonest.",
+      };
+    },
+  },
+
+  // ── COMMITMENT SPECIFICITY (marketplace, roommate, neighbour) ──
+  {
+    id: "commitment_specificity",
+    build: (c) => {
+      const concrete = matchAll(c.themText, CONCRETE_COMMITMENT);
+      const vague = matchAll(c.themText, VAGUE_COMMITMENT);
+      const total = concrete.length + vague.length;
+      if (!total) return null;
+      const value = clamp01(vague.length / Math.max(total, 1));
+      return {
+        id: "commitment_specificity",
+        label: "Vague vs specific",
+        percent: pct(value),
+        read:
+          value >= 0.6
+            ? `Their side offers ${vague.length} unbounded commitment${vague.length > 1 ? "s" : ""} and ${concrete.length} concrete one${concrete.length === 1 ? "" : "s"}. When someone intends to do a thing they usually attach a time to it; when they are keeping the option open they usually do not.`
+            : concrete.length
+              ? `Their messages attach real detail — ${concrete.length} concrete reference${concrete.length > 1 ? "s" : ""} to a day, time or figure. Specificity is the cheapest honest signal there is.`
+              : "Nothing concrete is committed to on their side.",
+        tier: "on-device",
+        method: "ratio of unbounded deferrals to named days, clock times and figures",
+        tone: value >= 0.6 ? "caution" : concrete.length ? "warm" : "neutral",
+        evidence: [
+          ...gather(c.them, VAGUE_COMMITMENT),
+          ...gather(c.them, CONCRETE_COMMITMENT),
+        ].slice(0, 4),
+        caveat:
+          "People are vague because they do not know yet at least as often as because they are hedging. This measures the shape of the commitment, never the intention behind it.",
+      };
+    },
+  },
+
   {
     id: "boundary_pressure",
     build: (c) => {

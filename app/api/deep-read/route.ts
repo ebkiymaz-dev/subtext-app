@@ -36,7 +36,7 @@ import {
   type DeepReadResult,
 } from "@/lib/engine/deepRead";
 import { resolveDeepProvider } from "@/lib/providers";
-import type { ContextId } from "@/lib/engine/types";
+import type { ContextId, FamiliarityId } from "@/lib/engine/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,12 +53,16 @@ export async function POST(req: Request) {
   let text = "";
   let context: ContextId = "other";
   let youName: string | undefined;
+  let familiarity: FamiliarityId = "year";
 
   try {
-    const body = (await req.json()) as { text?: unknown; context?: unknown; youName?: unknown };
+    const body = (await req.json()) as {
+      text?: unknown; context?: unknown; youName?: unknown; familiarity?: unknown;
+    };
     text = typeof body.text === "string" ? body.text : "";
     context = (typeof body.context === "string" ? body.context : "other") as ContextId;
     youName = typeof body.youName === "string" ? body.youName : undefined;
+    familiarity = (typeof body.familiarity === "string" ? body.familiarity : "year") as FamiliarityId;
   } catch {
     return json({ ok: false, reason: "Malformed request." }, 400);
   }
@@ -92,7 +96,7 @@ export async function POST(req: Request) {
   if (youName) transcript = setYou(transcript, youName);
   if (!transcript.messages.length) return json({ ok: false, reason: "Nothing parseable in that paste." });
   const signals = extractSignals(transcript);
-  const prompt = buildDeepPrompt(transcript, context, signals, youName ?? "You");
+  const prompt = buildDeepPrompt(transcript, context, signals, youName ?? "You", familiarity);
 
   // ── 3-5. call, validate, repair once, then give up honestly ──
   for (let attempt = 0; attempt < 2; attempt++) {

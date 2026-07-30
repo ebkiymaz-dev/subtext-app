@@ -33,7 +33,30 @@ export interface Transcript {
   format: "named" | "whatsapp" | "alternating" | "single";
 }
 
-export type ContextId = "dating" | "work" | "family" | "friendship" | "other";
+/**
+ * The relationship the exchange sits inside. This is NOT decoration: each id
+ * carries a baseline register, a set of extra categories and a different
+ * weighting of every relational signal. See `relationship.ts`.
+ */
+export type ContextId =
+  | "dating"
+  | "friendship"
+  | "family"
+  | "work"
+  | "roommate"
+  | "ex_partner"
+  | "business"
+  | "marketplace"
+  | "neighbor"
+  | "other";
+
+/**
+ * How long the user has known this person. Feeds the engine as DIAGNOSTICITY:
+ * with no shared history there is no norm for a message to depart from, so
+ * register and warmth findings are held back; with a long history the same
+ * message is a departure and is scored as one.
+ */
+export type FamiliarityId = "days" | "months" | "year" | "five_years" | "lifetime";
 
 export type CategoryId =
   // universal core — always on
@@ -57,7 +80,9 @@ export type CategoryId =
   | "deadline_pressure"
   | "accountability_shift"
   | "guilt"
-  | "boundary_pressure";
+  | "boundary_pressure"
+  | "anchoring"
+  | "commitment_specificity";
 
 export interface Evidence {
   messageId: string;
@@ -186,6 +211,10 @@ export interface SignalSummary {
   latency: { you: number | null; them: number | null };
   /** unreciprocated bids, by kind */
   unreciprocated: BidKind[];
+  /** mean register of each side, 0–1. The ABSOLUTE level, which only means
+   *  something once the relationship baseline is subtracted from it. */
+  themFormality: number;
+  youFormality: number;
   /** who wrote the last message */
   lastSpeaker: Speaker | null;
   /**
@@ -203,6 +232,9 @@ export interface SignalSummary {
 export interface Analysis {
   transcript: Transcript;
   context: ContextId;
+  familiarity: FamiliarityId;
+  /** the resolved context × familiarity weighting used for every score below */
+  profile: import("./relationship").RelationshipProfile;
   /** one plain-English sentence: the dominant read, stated without hedging into mush */
   headline: string;
   signals: SignalSummary;

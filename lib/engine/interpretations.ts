@@ -15,8 +15,13 @@ import type {
   CategoryScore, ContextId, Interpretation, SignalSummary, Transcript,
 } from "./types";
 import { BID_LABEL } from "./signals";
+import { formalityExcess, type RelationshipProfile } from "./relationship";
 
 const MAX_SINGLE = 60;
+
+/** Weights are relative, so a multiplier is only allowed to move them within
+ *  a sane band — a context must not be able to delete a reading outright. */
+const clampW = (n: number) => Math.max(0.4, Math.min(1.6, n));
 
 interface Candidate {
   id: string;
@@ -45,12 +50,18 @@ export function buildHeadline(
   s: SignalSummary,
   cats: CategoryScore[],
   t: Transcript,
-  context: ContextId
+  context: ContextId,
+  p: RelationshipProfile
 ): string {
   const bid = s.bids.find((b) => b.by === "you" && (b.kind === "compliment" || b.kind === "affection"));
 
   if (s.softClose && bid) {
-    return `${bid.kind === "compliment" ? "A compliment" : "An expression of affection"} was answered with a politeness token and a sign-off. Warm on the surface, closed underneath — and the closing is the part that carries information.`;
+    const base = `${bid.kind === "compliment" ? "A compliment" : "An expression of affection"} was answered with a politeness token and a sign-off. Warm on the surface, closed underneath — and the closing is the part that carries information.`;
+    // With days of history there is no established register for this to be
+    // a step back FROM, and saying so is more useful than the sharper line.
+    return p.deviation <= 0.5
+      ? `${base} You have known them ${p.familiarityLabel.toLowerCase()}, though, so treat this as the shape of one message rather than the shape of a person.`
+      : base;
   }
   if (get(cats, "pressure") >= 40) {
     return "The phrasing on their side is doing work on you: obligation, urgency and consensus framing all appear, and the effect is to compress your time to think.";
@@ -62,6 +73,29 @@ export function buildHeadline(
   if (s.longestRun.you >= 3 && s.themWords < s.youWords * 0.7) {
     return `You sent ${s.longestRun.you} messages in a row before they answered. Most of the shape of this exchange is yours, which is worth knowing before reading anything into the size of their reply.`;
   }
+  // ── the transactional contexts get their own ladder ──
+  // A negotiation or a listing enquiry is not a relationship with a problem;
+  // it is a job with a shape. Running the relational ladder over it is how a
+  // tool like this loses the user's trust in one screen.
+  if (p.transactional) {
+    if (get(cats, "anchoring") >= 38) {
+      return "The moves in this exchange are working on your reference point rather than on the terms: what is framed as fixed, who else is supposedly interested, and by when. Price the offer before you price the framing.";
+    }
+    if (get(cats, "commitment_specificity") >= 55) {
+      return "Nothing on their side commits to a time, a figure or a place. In an exchange whose entire purpose is to arrange one of those three, that absence is the finding.";
+    }
+    if (get(cats, "deadline_pressure") >= 40) {
+      return "The clock in this exchange is being supplied by them, not by the situation. That is a normal move and it still works on you if you do not name it.";
+    }
+  }
+
+  // ── register as a DEPARTURE ──
+  // The whole point of the familiarity input: identical text, opposite
+  // meaning. This branch is unreachable below a year of history, by design.
+  if (p.deviation >= 1 && formalityExcess(s.themFormality, p) >= 0.5 && !s.mutualClose) {
+    return `You have known them ${p.familiarityLabel.toLowerCase()}, and they are answering in a register people keep for people they do not know. Nothing in it is unkind — which is exactly what makes it worth noticing, because distance in text almost never arrives as unkindness.`;
+  }
+
   if (context === "work" && get(cats, "accountability_shift") >= 28) {
     return "The failure is described without anybody in it — things “got missed” and “weren't clear” rather than someone missing or clarifying them. Paired with a deferral, the effect is that nothing is answerable today.";
   }
@@ -89,6 +123,9 @@ export function buildHeadline(
   if (get(cats, "evasion") >= 45) {
     return "Specific questions are meeting non-specific answers. That pattern is consistent with a topic being stepped around — which is not the same as you being stepped around.";
   }
+  if (p.deviation <= 0.5 && !p.transactional) {
+    return `You have known them ${p.familiarityLabel.toLowerCase()}. The structural signals below are real, but there is no established way the two of you write to each other yet — so nothing here can be a departure from anything, and the engine will not pretend otherwise.`;
+  }
   if (s.turns.length <= 3) {
     return `${s.turns.length} message${s.turns.length === 1 ? "" : "s"} is a thin sample. The structural signals below are real, but a confident story about what they mean would be invented rather than found.`;
   }
@@ -99,7 +136,8 @@ export function buildInterpretations(
   cats: CategoryScore[],
   context: ContextId,
   t: Transcript,
-  s: SignalSummary
+  s: SignalSummary,
+  p: RelationshipProfile
 ): Interpretation[] {
   const engagement = get(cats, "engagement");
   const evasion = get(cats, "evasion");
@@ -123,7 +161,11 @@ export function buildInterpretations(
     id: "charitable",
     charitable: true,
     title: s.softClose ? "They were going to bed" : "The straightforward read",
-    body: s.softClose
+    body: p.transactional
+      ? `This is a ${p.contextLabel.toLowerCase()} exchange behaving like one. Brevity, formality and a clean sign-off are the register the situation prescribes, and reading warmth into their presence or absence here is reading the wrong variable.`
+      : p.deviation <= 0.5
+        ? `You have known them ${p.familiarityLabel.toLowerCase()}. People are careful and slightly formal with people they have just met, and almost everything below is consistent with nothing more than that.`
+        : s.softClose
       ? "A sign-off at the end of a night is the most ordinary thing in text. Someone who is tired, or in bed, or holding a phone in one hand answers warmly and briefly and means nothing by the brevity. Nothing here rules that out, and it is the single most likely explanation of any individual short goodbye."
       : stress >= 35
         ? "They are carrying something unrelated to you. Strain-associated language shows up across their messages regardless of topic, which is what capacity looks like when it runs out — not what disinterest looks like."
@@ -145,7 +187,7 @@ export function buildInterpretations(
       body: `You offered ${BID_LABEL[softBid.kind]} and what came back acknowledged it without taking it anywhere, in a register one notch more formal than the one you used, and then ended the conversation. Any one of those is nothing. Together they are the shape a soft no takes in text — not a rejection anyone would recognise as one, including the person writing it.`,
       suggestedNext:
         "Let the next opening be theirs. You have just given them something easy to pick up; whether they pick it up tomorrow tells you far more than another message from you would.",
-      weight: 28,
+      weight: Math.round(28 * clampW(p.registerWeight)),
       quotes: [quoteOf(t, softBid.messageId), quoteOf(t, softBid.responseMessageId)].filter(Boolean),
     });
   }
@@ -162,7 +204,7 @@ export function buildInterpretations(
       body: "The last turns from their side close topics rather than opening them, and nothing at the end needs an answer. That is what winding down looks like — it is much more common than a decision, and it does not survive contact with one good reason to keep talking.",
       suggestedNext:
         "If you want it to continue, give it a specific reason to: one concrete question or one concrete plan, not an open-ended check-in.",
-      weight: 24,
+      weight: Math.round(24 * clampW(p.closureWeight)),
       quotes: closingQuote ? [closingQuote] : [],
     });
   }
@@ -196,7 +238,7 @@ export function buildInterpretations(
       body: "Deferrals appear without dates attached and reciprocal asking has thinned. This is the shape a fade takes in text — gradual, polite, and rarely stated.",
       suggestedNext:
         "Stop carrying the thread. Match their energy for a beat and let them initiate next; what happens next tells you more than another message will.",
-      weight: 22,
+      weight: Math.round(22 * clampW(p.reciprocityWeight)),
       quotes: cats
         .find((c) => c.id === "fade_markers")
         ?.evidence.slice(0, 2)
@@ -221,14 +263,56 @@ export function buildInterpretations(
     });
   }
 
-  if (distance >= 55 && !s.softClose) {
+  const excess = formalityExcess(s.themFormality, p);
+  if (distance >= 55 && !s.softClose && p.deviation >= 0.8) {
     candidates.push({
       id: "register_shift",
       title: "The register has moved, and the content hasn't",
-      body: "Nothing they have written is unkind, and the formality gap between the two of you is wide enough to see. When people want less closeness they rarely say so; they raise the register and let it do the work.",
+      body:
+        p.deviation >= 1.15
+          ? `Nothing they have written is unkind. It is also written in a register that ${p.familiarityLabel.toLowerCase()} of history had already moved past — the familiar form was right there and was not taken. When people want less closeness they rarely say so; they raise the register and let it do the work.`
+          : "Nothing they have written is unkind, and the formality gap between the two of you is wide enough to see. When people want less closeness they rarely say so; they raise the register and let it do the work.",
       suggestedNext:
         "Match their register once and see what happens. If the gap closes on its own, it was a mood. If it holds, it is information.",
-      weight: 20,
+      weight: Math.round(20 * clampW(p.registerWeight)),
+    });
+  }
+
+  // ── THE READING THE FAMILIARITY INPUT EXISTS TO PROTECT ──
+  // Without this, a cautious first-week exchange gets the full distance
+  // treatment and the user walks away with a conclusion the data cannot
+  // support. It is a real competing read, and at this range often the best one.
+  if (p.deviation <= 0.5 && (distance >= 35 || engagement < 50)) {
+    candidates.push({
+      id: "no_norm_yet",
+      title: "There is no baseline here yet",
+      body: `You have known them ${p.familiarityLabel.toLowerCase()}. Every distance reading in this app works by comparing how someone writes to how they normally write to you — and that comparison does not exist yet. What looks like reserve at this range is usually just two people who have not yet worked out which register they are in.`,
+      suggestedNext:
+        "Set the register yourself rather than reading theirs. Write the way you would want the next month of this to sound, once, and see whether it is matched.",
+      weight: 30,
+    });
+  }
+
+  // ── the transactional read ──
+  if (p.transactional && (get(cats, "anchoring") >= 25 || get(cats, "commitment_specificity") >= 45)) {
+    candidates.push({
+      id: "doing_business",
+      title: "This is a negotiation doing what negotiations do",
+      body: "The moves here — a number framed as fixed, a competitor invoked, a commitment left without a time on it — are the standard grammar of getting a better deal. They are not evidence of bad faith and they are not about you. They are about the price.",
+      suggestedNext:
+        "Answer the terms and ignore the framing. One question that forces a specific — a figure, a date, an address — is worth more than any read of their tone.",
+      weight: 26,
+    });
+  }
+
+  if (excess >= 0.55 && p.deviation >= 1 && !candidates.some((c) => c.id === "register_shift")) {
+    candidates.push({
+      id: "raised_register",
+      title: "They are writing to you the way they write to strangers",
+      body: `Their register sits well above the baseline for ${p.contextLabel.toLowerCase()} at ${p.familiarityLabel.toLowerCase()}. That can be the day they are having, an audience they think might read it, or a decision — the text cannot distinguish those. What it can say is that the level is not the usual one.`,
+      suggestedNext:
+        "Name it lightly and once: “you sound formal — everything ok?” It is a cheap question and the answer to it is worth more than the whole panel above.",
+      weight: Math.round(22 * clampW(p.registerWeight)),
     });
   }
 
@@ -321,7 +405,12 @@ export function normalise(list: Candidate[]): Interpretation[] {
 }
 
 /** "What wasn't said" — absences are as informative as presences. */
-export function whatWasntSaid(cats: CategoryScore[], t: Transcript, s: SignalSummary): string[] {
+export function whatWasntSaid(
+  cats: CategoryScore[],
+  t: Transcript,
+  s: SignalSummary,
+  p: RelationshipProfile
+): string[] {
   const out: string[] = [];
   const themText = t.messages
     .filter((m) => m.speaker === "them")
@@ -339,7 +428,7 @@ export function whatWasntSaid(cats: CategoryScore[], t: Transcript, s: SignalSum
     );
   }
 
-  if (themTurns.length && themTurns.every((x) => !x.refersToOther)) {
+  if (themTurns.length && themTurns.every((x) => !x.refersToOther) && p.warmthWeight >= 0.5) {
     out.push(
       "Once fixed politeness phrases are set aside, their messages contain no reference to you at all — no “you”, no “your”, nothing pointed your way."
     );
@@ -351,8 +440,15 @@ export function whatWasntSaid(cats: CategoryScore[], t: Transcript, s: SignalSum
       themText
     )
   )
-    out.push("No specific day or time is proposed on their side — nothing points past this conversation.");
-  if (!/\?/.test(themText)) out.push("They asked nothing back across the whole exchange.");
+    out.push(
+      p.transactional
+        ? "No specific day, time or figure is proposed on their side — in an exchange that exists to settle one, that is the gap worth chasing."
+        : "No specific day or time is proposed on their side — nothing points past this conversation."
+    );
+  // Nobody owes a question back in a work or marketplace exchange, so this
+  // absence is only reported where its presence would have been the norm.
+  if (!/\?/.test(themText) && p.reciprocityWeight >= 0.7)
+    out.push("They asked nothing back across the whole exchange.");
   if (!/\b(i feel|i felt|i think|i want|i need|i'?m)\b/.test(themText))
     out.push("They state no position of their own — no wants, no needs, no view.");
   if (get(cats, "engagement") < 40 && !/\b(busy|work|swamped|sick|travel|tired|bed|sleep)\b/.test(themText))
@@ -362,7 +458,11 @@ export function whatWasntSaid(cats: CategoryScore[], t: Transcript, s: SignalSum
 }
 
 /** PREMIUM Coach — options, never commands, always tied to evidence. */
-export function buildCoach(cats: CategoryScore[], s: SignalSummary): CoachOut[] {
+export function buildCoach(
+  cats: CategoryScore[],
+  s: SignalSummary,
+  p: RelationshipProfile
+): CoachOut[] {
   const out: CoachOut[] = [];
   const find = (id: string) => cats.find((c) => c.id === id);
 
@@ -428,6 +528,33 @@ export function buildCoach(cats: CategoryScore[], s: SignalSummary): CoachOut[] 
       reasoning:
         "Strain-associated language suggests limited capacity. A smaller request is more likely to get an honest answer than a bigger one.",
       evidenceMessageId: stressCat.evidence[0]?.messageId,
+    });
+  }
+
+  const anchorCat = find("anchoring");
+  if (anchorCat && anchorCat.percent >= 30) {
+    out.push({
+      action: "Put your own number down before answering theirs.",
+      reasoning:
+        "Whoever states a figure first sets the range the rest of the conversation moves inside. Responding to their anchor — even to reject it — keeps you inside it. Naming your own price resets where the middle is.",
+      evidenceMessageId: anchorCat.evidence[0]?.messageId,
+    });
+  }
+
+  const specCat = find("commitment_specificity");
+  if (specCat && specCat.percent >= 50) {
+    out.push({
+      action: "Ask for one specific and stop there.",
+      reasoning:
+        "A time, a figure or an address. A single closed request is the cheapest test there is of whether an unbounded commitment is a scheduling problem or a soft no — and unlike a read of their tone, the answer is unambiguous.",
+      evidenceMessageId: specCat.evidence[0]?.messageId,
+    });
+  }
+
+  if (p.deviation <= 0.5 && !out.length) {
+    out.push({
+      action: "Set the register rather than reading it.",
+      reasoning: `You have known them ${p.familiarityLabel.toLowerCase()}, which means there is nothing to compare this against yet. Writing once in the register you would actually want tells you more in a day than any amount of analysis of theirs.`,
     });
   }
 

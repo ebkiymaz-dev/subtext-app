@@ -471,6 +471,11 @@ export function extractSignals(t: Transcript): SignalSummary {
     turns,
     bids,
     politenessAsymmetry: Number((themFormality - youFormality).toFixed(3)),
+    // The absolute levels, exposed so the relationship layer can subtract the
+    // baseline this pairing prescribes. Asymmetry alone cannot distinguish
+    // "they are formal with everyone" from "they are formal with you".
+    themFormality: Number(themFormality.toFixed(3)),
+    youFormality: Number(youFormality.toFixed(3)),
     lsm: languageStyleMatching(you.map((m) => m.text).join(" "), them.map((m) => m.text).join(" ")),
     closingIndex,
     continuationIndex,

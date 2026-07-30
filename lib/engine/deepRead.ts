@@ -30,7 +30,8 @@
 // ═════════════════════════════════════════════════════════════
 
 import { checkLexicon } from "../legitimacy";
-import type { ContextId, SignalSummary, Transcript } from "./types";
+import type { ContextId, FamiliarityId, SignalSummary, Transcript } from "./types";
+import { resolveProfile } from "./relationship";
 
 export interface DeepClaim {
   /** what is observably in the text */
@@ -159,8 +160,10 @@ export function buildDeepPrompt(
   t: Transcript,
   context: ContextId,
   s: SignalSummary,
-  youName: string
+  youName: string,
+  familiarity: FamiliarityId = "year"
 ): string {
+  const profile = resolveProfile(context, familiarity);
   const lines = t.messages
     .map((m) => `[${m.id}] ${m.speaker === "you" ? `${youName} (the user)` : `${m.name} (the other person)`}: ${m.text}`)
     .join("\n");
@@ -186,8 +189,13 @@ export function buildDeepPrompt(
 
   return `${SYSTEM_RULES}
 
-CONTEXT THE USER SELECTED: ${context}
+RELATIONSHIP THE USER SELECTED: ${profile.contextLabel} · known ${profile.familiarityLabel.toLowerCase()}
 THE USER IS: ${youName}
+
+HOW THAT CHANGES THE READ (this is not optional framing — apply it):
+${profile.frame}
+${profile.familiarityNote}
+Baseline register for this pairing is ${Math.round(profile.expectedFormality * 100)}%; the other person is writing at ${Math.round(s.themFormality * 100)}% and the user at ${Math.round(s.youFormality * 100)}%. Formality is only distance when it EXCEEDS the baseline. Below it, or at it, say so plainly instead of reading distance that is not there.
 
 CONVERSATION (each line is prefixed with its id — use the ids to keep track, but quote only the message text):
 ${lines}

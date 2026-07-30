@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { analyze } from "@/lib/engine/analyze";
 import { segment } from "@/lib/engine/segment";
-import type { Analysis, CategoryId, ContextId } from "@/lib/engine/types";
+import type { Analysis, CategoryId, ContextId, FamiliarityId } from "@/lib/engine/types";
+import {
+  CONTEXTS, CONTEXT_ORDER, FAMILIARITIES, FAMILIARITY_ORDER, resolveProfile,
+} from "@/lib/engine/relationship";
+import SubtextLogo from "@/components/SubtextLogo";
 import { SAMPLES } from "@/lib/samples";
 import {
   canAnalyse, FREE_LIMIT, isPaid, readUsage, recordAnalysis, remaining, type Usage,
@@ -22,17 +26,10 @@ import CoachCard from "@/components/CoachCard";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 
-const CONTEXTS: { id: ContextId; label: string }[] = [
-  { id: "dating", label: "Dating" },
-  { id: "work", label: "Work" },
-  { id: "family", label: "Family" },
-  { id: "friendship", label: "Friendship" },
-  { id: "other", label: "Other" },
-];
-
 export default function Home() {
   const [raw, setRaw] = useState("");
   const [context, setContext] = useState<ContextId>("dating");
+  const [familiarity, setFamiliarity] = useState<FamiliarityId>("months");
   const [youName, setYouName] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intake");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -81,7 +78,7 @@ export default function Home() {
 
     // A beat of deliberate slowness — this app never feels twitchy.
     window.setTimeout(() => {
-      const result = analyze(raw, context, youName ?? undefined);
+      const result = analyze(raw, context, youName ?? undefined, familiarity);
       if (result.kind === "distress") {
         // THE HARD RULE: no scores, and the free counter is NOT ticked.
         setAnalysis(null);
@@ -101,7 +98,7 @@ export default function Home() {
   async function runDeepRead() {
     if (!analysis) return;
     setDeepState("running");
-    const res = await requestDeepRead(raw, context, youName ?? undefined);
+    const res = await requestDeepRead(raw, context, youName ?? undefined, familiarity);
     setDeepResult(res);
     setDeepState("done");
   }
@@ -138,7 +135,8 @@ export default function Home() {
             <h1 className="font-display text-2xl text-sbt-ink">The read</h1>
             <p className="mt-1 text-xs text-sbt-mute">
               {analysis.transcript.messages.length} messages · parsed as{" "}
-              {analysis.transcript.format} · {context} context
+              {analysis.transcript.format} · {analysis.profile.contextLabel.toLowerCase()} ·
+              known {analysis.profile.familiarityLabel.toLowerCase()}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -162,6 +160,19 @@ export default function Home() {
           <p className="text-[10px] uppercase tracking-widest text-sbt-mute">the short version</p>
           <p className="mt-1.5 font-display text-[17px] leading-relaxed text-sbt-ink sm:text-[19px]">
             {analysis.headline}
+          </p>
+          {/* The weighting is shown, not hidden. A tuned read that will not
+              say what it was tuned by is just an opinion with a percentage. */}
+          <p className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] leading-relaxed text-sbt-mute">
+            Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
+            known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span> —
+            expected register {Math.round(analysis.profile.expectedFormality * 100)}%, observed{" "}
+            {Math.round(analysis.signals.themFormality * 100)}%.{" "}
+            {analysis.profile.deviation < 1
+              ? "Relational readings are held back at this length of history."
+              : analysis.profile.deviation > 1
+                ? "Departures from your usual register are scored at full weight."
+                : "Standard weighting."}
           </p>
         </section>
 
@@ -262,11 +273,12 @@ export default function Home() {
   // ── INTAKE ──────────────────────────────────────────────────
   return (
     <div className="space-y-8">
-      <section className="max-w-2xl">
-        <h1 className="font-display text-3xl leading-tight text-sbt-ink sm:text-4xl">
+      <section className="pt-2 sm:pt-6">
+        <SubtextLogo />
+        <h1 className="mx-auto mt-7 max-w-2xl text-center font-display text-[26px] leading-tight text-sbt-ink sm:text-[34px]">
           Paste a conversation. See what the language is carrying.
         </h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-sbt-dusk">
+        <p className="mx-auto mt-3 max-w-2xl text-center text-[15px] leading-relaxed text-sbt-dusk">
           Subtext reads word choice and structure, shows you the exact lines behind every signal,
           and gives you the competing readings side by side — including the kindest one. It will
           never tell you someone lied, and it cannot diagnose anything.
@@ -313,28 +325,87 @@ export default function Home() {
           </div>
         ) : null}
 
-        <div className="mt-4">
-          <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Context</p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {CONTEXTS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setContext(c.id)}
-                className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                  context === c.id
-                    ? "border-sbt-ink bg-sbt-ink text-sbt-paper"
-                    : "border-sbt-linen text-sbt-dusk hover:border-sbt-mute"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 text-[11px] text-sbt-mute">
-            Context adds a small pool of extra categories to the universal core. The map is a fixed
-            config — the model never chooses what to measure.
+        {/* ── WHO IS THIS. The two inputs that retune the engine. ──
+            Both are required to interpret anything: the same message means
+            different things from a colleague and from a sibling, and it means
+            different things again from a sibling you spoke to yesterday and
+            one you have not written to properly in five years. */}
+        <div className="mt-6 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
+          <p className="font-display text-[15px] text-sbt-ink">Who are you talking to?</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-sbt-mute">
+            These two answers change how every signal below is weighted — not which words are
+            looked for, but what their presence is allowed to mean.
           </p>
+
+          <div className="mt-4">
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Relationship</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {CONTEXT_ORDER.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setContext(id)}
+                  aria-pressed={context === id}
+                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                    context === id
+                      ? "border-sbt-ink bg-sbt-ink text-sbt-paper"
+                      : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"
+                  }`}
+                >
+                  {CONTEXTS[id].label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11.5px] leading-relaxed text-sbt-mute">
+              {CONTEXTS[context].hint}
+            </p>
+          </div>
+
+          <div className="mt-5">
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">
+              How long have you known this person?
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+              {FAMILIARITY_ORDER.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setFamiliarity(id)}
+                  aria-pressed={familiarity === id}
+                  className={`rounded-sbt border px-2.5 py-2 text-[13px] leading-tight transition-colors ${
+                    familiarity === id
+                      ? "border-sbt-gold bg-sbt-gold/15 font-medium text-sbt-ink"
+                      : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"
+                  }`}
+                >
+                  {FAMILIARITIES[id].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* The resolved weighting, stated before the user presses the button.
+              Nothing about this layer is hidden — that is the whole posture. */}
+          <div className="mt-4 rounded-sbt border border-sbt-linen bg-sbt-paper px-3.5 py-3">
+            <p className="text-[10px] uppercase tracking-widest text-sbt-mute">
+              what that changes
+            </p>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-sbt-dusk">
+              {FAMILIARITIES[familiarity].note}
+            </p>
+            <p className="mt-2 text-[11.5px] leading-relaxed text-sbt-mute">
+              Expected register for this pairing:{" "}
+              <span className="text-sbt-dusk">
+                {Math.round(resolveProfile(context, familiarity).expectedFormality * 100)}%
+              </span>
+              . Anything above that is scored as distance; anything at or below it is not.
+              {resolveProfile(context, familiarity).pool.length
+                ? ` Extra categories switched on: ${resolveProfile(context, familiarity)
+                    .pool.map((c) => c.replace(/_/g, " "))
+                    .join(", ")}.`
+                : " No extra categories — universal core only."}
+            </p>
+          </div>
         </div>
 
         {blocked ? (
@@ -388,6 +459,7 @@ export default function Home() {
                 onClick={() => {
                   setRaw(s.text);
                   setContext(s.context);
+                  setFamiliarity(s.familiarity);
                   setYouName(s.youName);
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
@@ -400,7 +472,9 @@ export default function Home() {
                 <p className="font-display text-[15px] text-sbt-ink">{s.label}</p>
                 <p className="mt-1 text-[13px] leading-relaxed text-sbt-dusk">{s.blurb}</p>
                 <p className="mt-2 text-[10px] uppercase tracking-wider text-sbt-mute">
-                  {s.triggersCare ? "shows the care path" : `${s.context} context`}
+                  {s.triggersCare
+                    ? "shows the care path"
+                    : `${CONTEXTS[s.context].label.toLowerCase()} · known ${FAMILIARITIES[s.familiarity].label.toLowerCase()}`}
                 </p>
               </button>
             </li>

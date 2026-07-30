@@ -3,19 +3,20 @@
 // the browser bundle must never contain any of those.
 
 import type { DeepReadResult } from "./engine/deepRead";
-import type { ContextId } from "./engine/types";
+import type { ContextId, FamiliarityId } from "./engine/types";
 import { withBase } from "./basePath";
 
 export async function requestDeepRead(
   text: string,
   context: ContextId,
-  youName?: string
+  youName?: string,
+  familiarity: FamiliarityId = "year"
 ): Promise<DeepReadResult> {
   try {
     const res = await fetch(withBase("/api/deep-read"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, context, youName }),
+      body: JSON.stringify({ text, context, youName, familiarity }),
     });
     return (await res.json()) as DeepReadResult;
   } catch {

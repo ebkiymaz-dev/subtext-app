@@ -19,14 +19,15 @@
 // both tiers.
 // ═════════════════════════════════════════════════════════════
 
-import type { Analysis, ContextId, DistressResult, Transcript } from "./types";
+import type { Analysis, ContextId, DistressResult, FamiliarityId, Transcript } from "./types";
 import { screenForDistress } from "./distress";
 import { scoreCategories } from "./categories";
 import { extractSignals } from "./signals";
 import { buildCoach, buildHeadline, buildInterpretations, whatWasntSaid } from "./interpretations";
 import { segment, setYou } from "./segment";
+import { resolveProfile } from "./relationship";
 
-export const ENGINE_VERSION = "subtext-engine/2.0.0 (on-device)";
+export const ENGINE_VERSION = "subtext-engine/2.1.0 (on-device)";
 
 export const METHOD_NOTES = [
   "Everything on this screen is computed on your device, from your text, by rules you could read: segmentation, the crisis screen, bid-and-response classification, register asymmetry, closing-move detection, style matching, and every evidence line.",
@@ -39,7 +40,12 @@ export type AnalyzeResult =
   | { kind: "distress"; distress: DistressResult }
   | { kind: "analysis"; analysis: Analysis };
 
-export function analyze(raw: string, context: ContextId, youName?: string): AnalyzeResult {
+export function analyze(
+  raw: string,
+  context: ContextId,
+  youName?: string,
+  familiarity: FamiliarityId = "year"
+): AnalyzeResult {
   // 1 — THE HARD RULE. Before parsing effort, before any spend, before
   // anything at all. This ordering is the whole safety guarantee.
   const distress = screenForDistress(raw);
@@ -52,26 +58,37 @@ export function analyze(raw: string, context: ContextId, youName?: string): Anal
   // 3 — the signal layer
   const signals = extractSignals(transcript);
 
-  // 4 — categories, computed from signals
-  const categories = scoreCategories(transcript, context, signals);
+  // 3b — the RELATIONSHIP layer. Resolved once and passed down, so every
+  // score below is computed against the same baseline and the UI can show
+  // the user exactly which baseline that was.
+  const profile = resolveProfile(context, familiarity);
+
+  // 4 — categories, computed from signals against the profile
+  const categories = scoreCategories(transcript, context, signals, profile);
 
   // 5 — the depth layer
-  const interpretations = buildInterpretations(categories, context, transcript, signals);
+  const interpretations = buildInterpretations(categories, context, transcript, signals, profile);
 
   return {
     kind: "analysis",
     analysis: {
       transcript,
       context,
-      headline: buildHeadline(signals, categories, transcript, context),
+      familiarity,
+      profile,
+      headline: buildHeadline(signals, categories, transcript, context, profile),
       signals,
       categories,
       interpretations,
-      whatWasntSaid: whatWasntSaid(categories, transcript, signals),
-      coach: buildCoach(categories, signals),
+      whatWasntSaid: whatWasntSaid(categories, transcript, signals, profile),
+      coach: buildCoach(categories, signals, profile),
       engineVersion: ENGINE_VERSION,
       tier: "on-device",
-      methodNotes: METHOD_NOTES,
+      methodNotes: [
+        ...METHOD_NOTES,
+        `Relationship weighting: ${profile.contextLabel.toLowerCase()}, known ${profile.familiarityLabel.toLowerCase()}. ${profile.frame}`,
+        profile.familiarityNote,
+      ],
     },
   };
 }
