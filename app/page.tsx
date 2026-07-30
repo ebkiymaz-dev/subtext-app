@@ -67,6 +67,25 @@ export default function Home() {
     }
   }, [preview, youName]);
 
+  /**
+   * WHICH SIDE IS THE USER — resolved at run time, never trusted from state.
+   *
+   * `youName` is set by an effect and survives a `reset()`, so a name chosen
+   * for one paste could still be sitting in state when a different paste is
+   * analysed. If it no longer matches any speaker in the CURRENT transcript
+   * the whole read silently inverts: their formality is scored as yours, the
+   * bids swap owners, and the app confidently describes the wrong person.
+   * That is the worst failure this product has, so the name is re-derived
+   * here against the transcript actually being read, and anything stale is
+   * dropped in favour of the segmenter's own first-person heuristic.
+   */
+  function resolveYouName(): string | undefined {
+    const names = preview?.names ?? [];
+    if (!names.length) return undefined;
+    if (youName && names.includes(youName)) return youName;
+    return names.find((n) => /^(you|me|myself)$/i.test(n)) ?? names[0];
+  }
+
   function run() {
     if (!raw.trim() || !usage) return;
     if (!canAnalyse(usage)) {
@@ -78,7 +97,7 @@ export default function Home() {
 
     // A beat of deliberate slowness — this app never feels twitchy.
     window.setTimeout(() => {
-      const result = analyze(raw, context, youName ?? undefined, familiarity);
+      const result = analyze(raw, context, resolveYouName(), familiarity);
       if (result.kind === "distress") {
         // THE HARD RULE: no scores, and the free counter is NOT ticked.
         setAnalysis(null);
@@ -98,13 +117,15 @@ export default function Home() {
   async function runDeepRead() {
     if (!analysis) return;
     setDeepState("running");
-    const res = await requestDeepRead(raw, context, youName ?? undefined, familiarity);
+    const res = await requestDeepRead(raw, context, resolveYouName(), familiarity);
     setDeepResult(res);
     setDeepState("done");
   }
 
   function reset() {
     setPhase("intake");
+    // Cleared deliberately: a "who is you" choice belongs to one transcript.
+    setYouName(null);
     setAnalysis(null);
     setActive(null);
     setDeepState("idle");
@@ -135,8 +156,12 @@ export default function Home() {
             <h1 className="font-display text-2xl text-sbt-ink">The read</h1>
             <p className="mt-1 text-xs text-sbt-mute">
               {analysis.transcript.messages.length} messages · parsed as{" "}
-              {analysis.transcript.format} · {analysis.profile.contextLabel.toLowerCase()} ·
-              known {analysis.profile.familiarityLabel.toLowerCase()}
+              {analysis.transcript.format} · reading{" "}
+              <span className="text-sbt-dusk">
+                {analysis.transcript.messages.find((m) => m.speaker === "you")?.name ?? "you"}
+              </span>{" "}
+              as you · {analysis.profile.contextLabel.toLowerCase()} · known{" "}
+              {analysis.profile.familiarityLabel.toLowerCase()}
             </p>
           </div>
           <div className="flex items-center gap-2">

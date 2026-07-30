@@ -10,8 +10,13 @@ const WHATSAPP =
 const NAMED = /^([A-Za-z][\w .'-]{0,30}):\s*(.+)$/;
 
 export function segment(raw: string): Transcript {
+  // `\r?\n` misses the CR-ONLY case, and a CR-only paste is not exotic: some
+  // chat exports and some copy paths on Windows and older macOS produce it.
+  // When it happened the whole conversation collapsed into ONE message, got
+  // format "single", and was attributed entirely to the user — a completely
+  // fabricated read delivered with no warning. Split on any of the three.
   const lines = raw
-    .split(/\r?\n/)
+    .split(/\r\n|\r|\n/)
     .map((l) => l.trim())
     .filter(Boolean);
 
