@@ -16,12 +16,16 @@ const TONE_FILL: Record<string, string> = {
  */
 export default function Panel({
   analysis,
+  youName,
+  themName,
   activeCategory,
   onSelect,
   showAll,
   onToggleAll,
 }: {
   analysis: Analysis;
+  youName: string;
+  themName: string;
   activeCategory: CategoryId | null;
   onSelect: (id: CategoryId | null) => void;
   showAll: boolean;
@@ -37,6 +41,10 @@ export default function Panel({
       <header className="mb-4">
         <h2 className="font-display text-lg text-sbt-ink">What the language carries</h2>
         <p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">{CONFIDENCE_CAPTION}</p>
+        <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+          <span className="text-emerald-700"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />{youName} = your context</span>
+          <span className="text-sky-700"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-500" />{themName} = the side these readings describe</span>
+        </p>
       </header>
 
       <ul className="space-y-3.5">
@@ -64,7 +72,7 @@ export default function Panel({
 
                 <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sbt-linen">
                   <div
-                    className={`animate-fill-bar h-full rounded-full ${TONE_FILL[c.tone]}`}
+                    className={`animate-fill-bar h-full rounded-full bg-sky-500`}
                     style={{ width: `${c.percent}%` }}
                   />
                 </div>

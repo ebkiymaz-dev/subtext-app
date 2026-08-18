@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { checkout, FREE_LIMIT, PLANS, readUsage, type PlanId, type Usage } from "@/lib/usage";
 import { config } from "@/lib/config";
 import { LEGITIMACY_LAWS } from "@/lib/legitimacy";
@@ -28,6 +29,25 @@ export default function PlansPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (config.billingMode === "mock") {
+    return (
+      <section className="mx-auto max-w-2xl rounded-sbt border border-sbt-linen bg-white/70 p-6 shadow-soft sm:p-8">
+        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">first public release</p>
+        <h1 className="mt-2 font-display text-3xl text-sbt-ink">Subtext is free right now.</h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-sbt-dusk">
+          Unlimited on-device reads, the evidence behind every score, and Answer Coach are included.
+          There is no checkout and no payment is taken in this release.
+        </p>
+        <Link
+          href="/"
+          className="mt-5 inline-block rounded-sbt bg-sbt-gold px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700"
+        >
+          Read a conversation
+        </Link>
+      </section>
+    );
   }
 
   return (

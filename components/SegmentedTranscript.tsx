@@ -49,11 +49,12 @@ export default function SegmentedTranscript({
           >
             <div className={`max-w-[86%] sm:max-w-[76%]`}>
               <p
-                className={`mb-1 text-[11px] uppercase tracking-wider text-sbt-mute ${
+                className={`mb-1 text-[11px] font-medium uppercase tracking-wider ${
                   m.speaker === "you" ? "text-right" : ""
-                }`}
+                } ${m.speaker === "you" ? "text-emerald-700" : "text-sky-700"}`}
               >
-                {m.name}
+                <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${m.speaker === "you" ? "bg-emerald-500" : "bg-sky-500"}`} />
+                {m.name}{m.speaker === "you" ? " (you)" : " (them)"}
                 {m.timestamp ? ` · ${m.timestamp}` : ""}
               </p>
 
@@ -62,8 +63,8 @@ export default function SegmentedTranscript({
                 onMouseLeave={() => isEvidence && onFocusCategory(null)}
                 className={`rounded-sbt px-4 py-3 text-[15px] leading-relaxed transition-shadow ${
                   m.speaker === "you"
-                    ? "bg-sbt-linen/70 text-sbt-ink"
-                    : "border border-sbt-linen bg-white text-sbt-ink"
+                    ? "border border-emerald-200 bg-emerald-50 text-sbt-ink"
+                    : "border border-sky-200 bg-sky-50 text-sbt-ink"
                 } ${spotlit ? "shadow-soft ring-1 ring-sbt-gold/50" : ""}`}
               >
                 {isEvidence ? (

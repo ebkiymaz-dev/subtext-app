@@ -23,6 +23,7 @@ import SegmentedTranscript from "@/components/SegmentedTranscript";
 import Panel from "@/components/Panel";
 import Interpretations from "@/components/Interpretations";
 import CoachCard from "@/components/CoachCard";
+import AnswerCoachPrompt from "@/components/AnswerCoachPrompt";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 
@@ -37,6 +38,7 @@ export default function Home() {
   const [showAll, setShowAll] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [parseWarning, setParseWarning] = useState<string | null>(null);
 
   // The AI-assisted tier. Deliberately NOT run automatically: the on-device
   // analysis is complete, and the deep read is the one action in this app
@@ -44,6 +46,7 @@ export default function Home() {
   const [deepState, setDeepState] = useState<"idle" | "running" | "done">("idle");
   const [deepResult, setDeepResult] = useState<DeepReadResult | null>(null);
   const [providerLabel, setProviderLabel] = useState<string | null>(null);
+  const [showAnswerCoach, setShowAnswerCoach] = useState(false);
 
   useEffect(() => setUsage(readUsage()), []);
 
@@ -88,7 +91,14 @@ export default function Home() {
 
   function run() {
     if (!raw.trim() || !usage) return;
-    if (!canAnalyse(usage)) {
+    if (preview && preview.names.length > 2) {
+      setParseWarning(
+        "Subtext reads one conversation between two people. This paste has more than two named speakers, so remove the other messages before reading it."
+      );
+      return;
+    }
+    setParseWarning(null);
+    if (config.billingMode !== "mock" && !canAnalyse(usage)) {
       setBlocked(true);
       return;
     }
@@ -110,6 +120,7 @@ export default function Home() {
       setShowAll(false);
       setDeepState("idle");
       setDeepResult(null);
+      setShowAnswerCoach(true);
       setPhase("result");
     }, 900);
   }
@@ -130,9 +141,12 @@ export default function Home() {
     setActive(null);
     setDeepState("idle");
     setDeepResult(null);
+    setShowAnswerCoach(false);
   }
 
   const paid = usage ? isPaid(usage) : false;
+  const freeRelease = config.billingMode === "mock";
+  const unlocked = freeRelease || paid;
   const left = usage ? remaining(usage) : FREE_LIMIT;
 
   if (phase === "distress") return <DistressCard onBack={reset} />;
@@ -149,6 +163,8 @@ export default function Home() {
   }
 
   if (phase === "result" && analysis) {
+    const youSpeaker = analysis.transcript.messages.find((m) => m.speaker === "you")?.name ?? "You";
+    const themSpeaker = analysis.transcript.messages.find((m) => m.speaker === "them")?.name ?? "The other person";
     return (
       <div className="space-y-5">
         <header className="flex flex-wrap items-end justify-between gap-3">
@@ -158,14 +174,14 @@ export default function Home() {
               {analysis.transcript.messages.length} messages · parsed as{" "}
               {analysis.transcript.format} · reading{" "}
               <span className="text-sbt-dusk">
-                {analysis.transcript.messages.find((m) => m.speaker === "you")?.name ?? "you"}
+                {youSpeaker}
               </span>{" "}
               as you · {analysis.profile.contextLabel.toLowerCase()} · known{" "}
               {analysis.profile.familiarityLabel.toLowerCase()}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {!paid && usage ? (
+            {!unlocked && usage ? (
               <span className="text-xs text-sbt-mute">
                 {left} of {FREE_LIMIT} free reads left this month
               </span>
@@ -224,9 +240,9 @@ export default function Home() {
                 analysis={analysis}
                 activeCategory={active}
                 onFocusCategory={setActive}
-                locked={!paid}
+                locked={!unlocked}
               />
-              {!paid ? (
+              {!unlocked ? (
                 <p className="mt-4 rounded-sbt bg-sbt-linen/60 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
                   The lines behind each score are marked, but the reasoning is blurred on Free.{" "}
                   <Link href="/plans" className="text-sbt-gold-700 underline underline-offset-2">
@@ -239,8 +255,10 @@ export default function Home() {
           </div>
 
           <div className="order-1 space-y-5 lg:order-2">
-            <Panel
-              analysis={analysis}
+              <Panel
+                analysis={analysis}
+                youName={youSpeaker}
+                themName={themSpeaker}
               activeCategory={active}
               onSelect={setActive}
               showAll={showAll}
@@ -263,15 +281,17 @@ export default function Home() {
               </section>
             ) : null}
 
-            <CoachCard suggestions={analysis.coach} locked={!paid} />
+            <CoachCard suggestions={analysis.coach} locked={!unlocked} />
 
-            <DeepReadCard
-              state={deepState}
-              result={deepResult}
-              locked={!paid}
-              providerLabel={providerLabel}
-              onRun={runDeepRead}
-            />
+            {providerLabel ? (
+              <DeepReadCard
+                state={deepState}
+                result={deepResult}
+                locked={!unlocked}
+                providerLabel={providerLabel}
+                onRun={runDeepRead}
+              />
+            ) : null}
 
             <section className="rounded-sbt border border-sbt-linen bg-sbt-linen/40 p-4">
               <h3 className="text-[10px] uppercase tracking-widest text-sbt-mute">
@@ -291,6 +311,7 @@ export default function Home() {
             </section>
           </div>
         </div>
+        {showAnswerCoach ? <AnswerCoachPrompt suggestions={analysis.coach} onClose={() => setShowAnswerCoach(false)} /> : null}
       </div>
     );
   }
@@ -322,7 +343,10 @@ export default function Home() {
         <textarea
           id="paste"
           value={raw}
-          onChange={(e) => setRaw(e.target.value)}
+          onChange={(e) => {
+            setRaw(e.target.value);
+            setParseWarning(null);
+          }}
           rows={9}
           placeholder={"You: are we still on for thursday?\nSam: yeah maybe, this week is insane"}
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
@@ -330,7 +354,7 @@ export default function Home() {
 
         {preview && preview.names.length > 1 ? (
           <div className="mt-4">
-            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Which one is you?</p>
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Choose your side — we will colour the conversation before reading it</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {preview.names.map((n) => (
                 <button
@@ -339,8 +363,8 @@ export default function Home() {
                   onClick={() => setYouName(n)}
                   className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
                     youName === n
-                      ? "border-sbt-gold bg-sbt-gold/10 text-sbt-gold-700"
-                      : "border-sbt-linen text-sbt-dusk hover:border-sbt-mute"
+                      ? "border-emerald-400 bg-emerald-50 text-emerald-800"
+                      : "border-sky-200 bg-sky-50 text-sky-800 hover:border-sky-400"
                   }`}
                 >
                   {n}
@@ -350,13 +374,26 @@ export default function Home() {
           </div>
         ) : null}
 
+        {preview && preview.names.length > 2 ? (
+          <p className="mt-3 rounded-sbt border border-sbt-amber/35 bg-sbt-amber/10 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
+            This looks like a group chat ({preview.names.length} named speakers). Subtext will only
+            read a direct two-person exchange, so it does not merge several people into one side.
+          </p>
+        ) : null}
+
+        {parseWarning ? (
+          <p role="alert" className="mt-3 rounded-sbt border border-sbt-amber/35 bg-sbt-amber/10 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
+            {parseWarning}
+          </p>
+        ) : null}
+
         {/* ── WHO IS THIS. The two inputs that retune the engine. ──
             Both are required to interpret anything: the same message means
             different things from a colleague and from a sibling, and it means
             different things again from a sibling you spoke to yesterday and
             one you have not written to properly in five years. */}
-        <div className="mt-6 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
-          <p className="font-display text-[15px] text-sbt-ink">Who are you talking to?</p>
+        <details className="mt-6 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
+          <summary className="cursor-pointer font-display text-[15px] text-sbt-ink">Customize <span className="font-body text-[12px] text-sbt-mute">— enter details for a more tailored read</span></summary>
           <p className="mt-1 text-[12px] leading-relaxed text-sbt-mute">
             These two answers change how every signal below is weighted — not which words are
             looked for, but what their presence is allowed to mean.
@@ -431,7 +468,7 @@ export default function Home() {
                 : " No extra categories — universal core only."}
             </p>
           </div>
-        </div>
+        </details>
 
         {blocked ? (
           <div className="mt-4 rounded-sbt border border-sbt-gold/40 bg-sbt-gold/[0.07] p-4">
@@ -462,8 +499,10 @@ export default function Home() {
           </button>
           {usage ? (
             <p className="text-xs text-sbt-mute">
-              {paid
-                ? "Premium · unlimited reads"
+              {freeRelease
+                ? "Free release · unlimited reads"
+                : paid
+                  ? "Premium · unlimited reads"
                 : `${left} of ${FREE_LIMIT} free reads left this month`}
             </p>
           ) : null}
@@ -486,6 +525,7 @@ export default function Home() {
                   setContext(s.context);
                   setFamiliarity(s.familiarity);
                   setYouName(s.youName);
+                  setParseWarning(null);
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 className={`h-full w-full rounded-sbt border p-4 text-left transition-colors ${

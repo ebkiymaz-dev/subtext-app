@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { BASE_PATH } from "@/lib/basePath";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { modeSummary } from "@/lib/config";
+import { config } from "@/lib/config";
 import CapabilityBar from "@/components/CapabilityBar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -18,7 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] bg-sbt-paper">
-      <header className="sticky top-0 z-40 border-b border-sbt-linen bg-sbt-paper/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-sbt-linen bg-sbt-paper/90 backdrop-blur" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           {/* The wordmark's two voices: script "Sub", serif "text". This is the
               ONLY place font-script is used — see lib/fonts.ts. Pinyon Script
@@ -43,14 +43,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Read
             </Link>
-            <Link
-              href="/plans"
-              className={`rounded-sbt px-3 py-1.5 transition-colors ${
-                pathname === "/plans" ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
-              }`}
-            >
-              Plans
-            </Link>
+            {config.billingMode !== "mock" ? (
+              <Link
+                href="/plans"
+                className={`rounded-sbt px-3 py-1.5 transition-colors ${
+                  pathname === "/plans" ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
+                }`}
+              >
+                Plans
+              </Link>
+            ) : null}
           </nav>
         </div>
       </header>
@@ -69,9 +71,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             Subtext reads language, not people. It cannot detect lies, diagnose anything, or tell
             you what someone meant. It shows you which markers are present and where.
           </p>
-          <p className="text-[10px] uppercase tracking-widest text-sbt-mute/70">
-            on-device analysis · {modeSummary()} · your conversation never leaves this device
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-widest text-sbt-mute/70">
+            <p>on-device by default · optional deep read only after consent</p>
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-sbt-dusk">
+              Privacy policy
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -20,7 +20,7 @@ export default function CoachCard({
       <header className="mb-3 flex items-center justify-between gap-2">
         <h2 className="font-display text-lg text-sbt-ink">Coach</h2>
         <span className="rounded-full border border-sbt-gold/40 bg-sbt-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-sbt-gold-700">
-          Premium
+          Answer Coach
         </span>
       </header>
 
