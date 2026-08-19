@@ -25,6 +25,9 @@ const basePath =
 
 const nextConfig = {
   basePath,
+  // The production Caddy route and the Android start URL both use /subtext/.
+  // Keeping one canonical trailing-slash form prevents proxy redirect loops.
+  trailingSlash: true,
   // Re-export the normalised value so client code sees "" rather than undefined
   // when the variable is not set at all.
   env: { NEXT_PUBLIC_BASE_PATH: basePath },
