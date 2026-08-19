@@ -2,9 +2,9 @@
 
 // basePath is a property of the DEPLOYMENT, not of the code.
 //
-//   Vercel / one-app-per-domain  -> leave NEXT_PUBLIC_BASE_PATH unset -> basePath ""
-//   apex reverse proxy (cloudflared, https://neonjungletools.com/subtext/)
-//                                -> NEXT_PUBLIC_BASE_PATH=/subtext
+//   Local development            -> leave NEXT_PUBLIC_BASE_PATH unset -> basePath ""
+//   Vercel production            -> defaults to /subtext for the apex proxy
+//   Any explicit deployment      -> NEXT_PUBLIC_BASE_PATH overrides the default
 //
 // The path-served deployment sets it at build time in
 // "Neon Jungle Tools/deploy/01_build_and_install.bat", so both deployment
@@ -13,7 +13,9 @@
 // Next rewrites its own routes, <Link> hrefs and /_next/* asset URLs with this
 // prefix automatically; the handful of places that build a URL by hand read
 // NEXT_PUBLIC_BASE_PATH via lib/basePath.ts.
-const raw = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").trim();
+const raw = (
+  process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL ? "/subtext" : "")
+).trim();
 
 // Next requires basePath to be either "" or a leading slash with no trailing slash.
 const basePath =

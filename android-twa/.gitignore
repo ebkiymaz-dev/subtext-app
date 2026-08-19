@@ -6,3 +6,6 @@ app/build/
 *.keystore
 *.jks
 local.properties
+*.idsig
+release/
+signing-diagnostic.log

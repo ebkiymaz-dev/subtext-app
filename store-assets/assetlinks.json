@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.neonjungle.subtext",
+      "sha256_cert_fingerprints": [
+        "88:A5:5E:BF:F0:01:87:0A:56:C5:58:22:15:01:3A:62:CE:BC:63:A1:A0:5D:4A:64:C6:C7:93:BF:B6:62:DF:C5"
+      ]
+    }
+  }
+]
