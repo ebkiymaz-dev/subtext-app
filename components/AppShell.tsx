@@ -12,7 +12,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register(`${BASE_PATH}/sw.js`).catch(() => {});
+      navigator.serviceWorker
+        .register(`${BASE_PATH}/sw.js`)
+        .then((registration) => registration.update())
+        .catch(() => {});
     }
   }, []);
 
