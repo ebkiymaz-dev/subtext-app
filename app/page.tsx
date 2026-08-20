@@ -27,6 +27,19 @@ import AnswerCoachPrompt from "@/components/AnswerCoachPrompt";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 
+const CONTEXT_PLACEHOLDERS: Record<ContextId, string> = {
+  dating: "Paste their last text here…",
+  friendship: "Paste the text you keep rereading here…",
+  family: "Paste the family message you want help reading here…",
+  work: "Paste that passive-aggressive email from your manager here…",
+  roommate: "Paste the message about the dishes, rent, or boundaries here…",
+  ex_partner: "Paste the 2 AM message here…",
+  business: "Paste the negotiation message here…",
+  marketplace: "Paste the buyer or seller's message here…",
+  neighbor: "Paste the message from your neighbour here…",
+  other: "Paste the conversation you want help reading here…",
+};
+
 export default function Home() {
   const [raw, setRaw] = useState("");
   const [context, setContext] = useState<ContextId>("dating");
@@ -340,6 +353,18 @@ export default function Home() {
           lines. Nothing is uploaded and nothing is stored — this runs on your device.
         </p>
 
+        <div className="mt-4 flex items-start gap-2.5 rounded-sbt border border-emerald-200 bg-emerald-50/80 px-3.5 py-3 text-emerald-950">
+          <span aria-hidden="true" className="mt-0.5 text-base leading-none">🔒</span>
+          <div>
+            <p className="text-[12px] font-semibold tracking-[0.01em]">
+              On-device by default — your text stays here
+            </p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-900/75">
+              No account, upload, or stored conversation. An optional Deep Read only runs if you choose it.
+            </p>
+          </div>
+        </div>
+
         <textarea
           id="paste"
           value={raw}
@@ -348,7 +373,7 @@ export default function Home() {
             setParseWarning(null);
           }}
           rows={9}
-          placeholder={"You: are we still on for thursday?\nSam: yeah maybe, this week is insane"}
+          placeholder={CONTEXT_PLACEHOLDERS[context]}
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
         />
 

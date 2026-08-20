@@ -28,9 +28,38 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const softwareApplicationSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Subtext",
+  description:
+    "A private browser tool that analyzes the language and structure of a conversation and shows the evidence behind multiple possible readings.",
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "Web",
+  url: "https://neonjungletools.com/subtext/",
+  isAccessibleForFree: true,
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  featureList: [
+    "On-device conversation analysis",
+    "Speaker-side highlighting",
+    "Evidence-backed alternative readings",
+    "No account required",
+  ],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={fontClass}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+        />
+      </head>
       <body className="font-body antialiased">
         <AppShell>{children}</AppShell>
       </body>
