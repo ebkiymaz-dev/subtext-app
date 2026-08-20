@@ -10,6 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "eval": "tsc -p tsconfig.eval.json && node .eval-out/scripts/eval.js",
+    "eval:mobile": "tsc -p tsconfig.eval.json && node .eval-out/scripts/mobile-fuzz.js",
     "eval:deep": "tsc -p tsconfig.eval.json && node .eval-out/scripts/eval.js --deep"
   },
   "dependencies": {

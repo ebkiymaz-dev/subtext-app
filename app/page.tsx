@@ -58,6 +58,7 @@ export default function Home() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [parseWarning, setParseWarning] = useState<string | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
 
   // The AI-assisted tier. Deliberately NOT run automatically: the on-device
   // analysis is complete, and the deep read is the one action in this app
@@ -126,7 +127,12 @@ export default function Home() {
   }
 
   function run() {
-    if (!raw.trim() || !usage) return;
+    if (!raw.trim()) return;
+    // Mobile restores and slow devices can receive a tap before the mount
+    // effect has populated state. Never turn that valid tap into a silent
+    // no-op: read the small local counter synchronously as a fallback.
+    const currentUsage = usage ?? readUsage();
+    if (!usage) setUsage(currentUsage);
     if (preview && preview.names.length > 2) {
       setParseWarning(
         "Subtext reads one conversation between two people. This paste has more than two named speakers, so remove the other messages before reading it."
@@ -134,7 +140,8 @@ export default function Home() {
       return;
     }
     setParseWarning(null);
-    if (config.billingMode !== "mock" && !canAnalyse(usage)) {
+    setRunError(null);
+    if (config.billingMode !== "mock" && !canAnalyse(currentUsage)) {
       setBlocked(true);
       return;
     }
@@ -143,22 +150,37 @@ export default function Home() {
 
     // A beat of deliberate slowness — this app never feels twitchy.
     window.setTimeout(() => {
-      const result = analyze(raw, context, resolveYouName(), familiarity);
-      if (result.kind === "distress") {
-        // THE HARD RULE: no scores, and the free counter is NOT ticked.
+      try {
+        const result = analyze(raw, context, resolveYouName(), familiarity);
+        if (result.kind === "distress") {
+          // THE HARD RULE: no scores, and the free counter is NOT ticked.
+          setAnalysis(null);
+          setPhase("distress");
+          return;
+        }
+        setAnalysis(result.analysis);
+        setUsage(recordAnalysis());
+        // Progress is optional and must never be able to block the result.
+        try {
+          setReflection(recordReflection());
+        } catch {
+          setReflection(null);
+        }
+        setActive(null);
+        setShowAll(false);
+        setDeepState("idle");
+        setDeepResult(null);
+        setShowAnswerCoach(true);
+        setPhase("result");
+      } catch (error) {
+        // Do not log the pasted conversation. A safe diagnostic is enough.
+        console.error("Subtext local analysis failed", error);
         setAnalysis(null);
-        setPhase("distress");
-        return;
+        setRunError(
+          "Subtext could not read that paste on this device. Your text stayed private. Try the included example below; if that works, shorten the paste or remove export headers and try again."
+        );
+        setPhase("intake");
       }
-      setAnalysis(result.analysis);
-      setUsage(recordAnalysis());
-      setReflection(recordReflection());
-      setActive(null);
-      setShowAll(false);
-      setDeepState("idle");
-      setDeepResult(null);
-      setShowAnswerCoach(true);
-      setPhase("result");
     }, 900);
   }
 
@@ -179,6 +201,7 @@ export default function Home() {
     setDeepState("idle");
     setDeepResult(null);
     setShowAnswerCoach(false);
+    setRunError(null);
   }
 
   const paid = usage ? isPaid(usage) : false;
@@ -404,6 +427,7 @@ export default function Home() {
           onChange={(e) => {
             setRaw(e.target.value);
             setParseWarning(null);
+            setRunError(null);
           }}
           rows={7}
           placeholder={CONTEXT_PLACEHOLDERS[context]}
@@ -543,6 +567,12 @@ export default function Home() {
             >
               See plans
             </Link>
+          </div>
+        ) : null}
+
+        {runError ? (
+          <div role="alert" className="mt-4 rounded-sbt border border-sbt-rose/30 bg-sbt-rose/[0.06] p-4 text-[13px] leading-relaxed text-sbt-dusk">
+            {runError}
           </div>
         ) : null}
 

@@ -13,5 +13,5 @@
     "rootDir": ".",
     "noEmitOnError": true
   },
-  "include": ["scripts/eval.ts", "lib/engine/**/*.ts", "lib/evalSet.ts", "lib/legitimacy.ts"]
+  "include": ["scripts/eval.ts", "scripts/mobile-fuzz.ts", "lib/engine/**/*.ts", "lib/evalSet.ts", "lib/legitimacy.ts"]
 }

@@ -32,7 +32,7 @@ function daysBetween(later: string, earlier: string): number {
 function snapshot(progress: ReflectionProgress): ReflectionSnapshot {
   const activeDays = [...new Set(progress.activeDays)].sort();
   const today = dayKey();
-  const last = activeDays.at(-1);
+  const last = activeDays.length ? activeDays[activeDays.length - 1] : undefined;
   let streak = 0;
 
   if (last && daysBetween(today, last) <= 1) {

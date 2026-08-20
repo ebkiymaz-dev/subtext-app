@@ -1,7 +1,7 @@
 // Subtext — minimal offline shell. No analytics, no third-party requests,
 // and no caching of anything you paste (the app never persists raw text).
 const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
-const CACHE = "subtext-shell-v7";
+const CACHE = "subtext-shell-v8";
 const SHELL = [
   BASE + "/",
   BASE + "/plans",
