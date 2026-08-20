@@ -14,7 +14,7 @@ $keytool = Join-Path $javaHome "bin\keytool.exe"
 $jarsigner = Join-Path $javaHome "bin\jarsigner.exe"
 $apksignerJar = Join-Path $androidSdk "build-tools\36.1.0\lib\apksigner.jar"
 $keystore = Join-Path $projectRoot "android.keystore"
-$unsignedApk = Join-Path $projectRoot "app-release-unsigned-aligned.apk"
+$unsignedApk = Join-Path $projectRoot "app\build\outputs\apk\release\app-release-unsigned.apk"
 $unsignedBundle = Join-Path $projectRoot "app\build\outputs\bundle\release\app-release.aab"
 $alias = "subtext"
 $releaseDir = Join-Path $projectRoot "release"
@@ -215,8 +215,8 @@ try {
     Write-Diagnostic "Permanent key backup verified."
 
     New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-    $releaseApk = Join-Path $releaseDir "subtext-v1-signed.apk"
-    $releaseBundle = Join-Path $releaseDir "subtext-v1-play.aab"
+    $releaseApk = Join-Path $releaseDir "subtext-v2-signed.apk"
+    $releaseBundle = Join-Path $releaseDir "subtext-v2-play.aab"
 
     $env:SUBTEXT_STORE_PASSWORD = $passwords.StorePassword
     $env:SUBTEXT_KEY_PASSWORD = $passwords.KeyPassword
@@ -273,7 +273,7 @@ try {
 
     Clear-Variable passwords -ErrorAction SilentlyContinue
     [System.Windows.Forms.MessageBox]::Show(
-        "Success. The signed Subtext Google Play bundle is ready and verified.",
+        "Success. The signed Subtext version-2 Google Play bundle is ready and verified.",
         "Subtext release ready"
     ) | Out-Null
 }
