@@ -53,6 +53,7 @@ interface Report {
 export default function CapabilityBar() {
   const [report, setReport] = useState<Report | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -90,9 +91,22 @@ export default function CapabilityBar() {
       className="mb-4 rounded-sbt border border-sbt-linen bg-sbt-linen/40 p-4"
     >
       <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1 space-y-2">
-          {items.map((c) => (
-            <div key={c.capability}>
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => setMobileOpen((value) => !value)}
+            className="flex w-full items-center justify-between gap-3 text-left sm:hidden"
+            aria-expanded={mobileOpen}
+          >
+            <span>
+              <span className="block text-xs font-medium text-sbt-ink">On-device analysis ready</span>
+              <span className="mt-0.5 block text-[10px] text-sbt-mute">No model connection required</span>
+            </span>
+            <span className="text-[10px] uppercase tracking-wider text-sbt-gold">{mobileOpen ? "Hide" : "Options"}</span>
+          </button>
+          <div className={`${mobileOpen ? "mt-3 space-y-2" : "hidden"} sm:mt-0 sm:block sm:space-y-2`}>
+            {items.map((c) => (
+              <div key={c.capability}>
               <h3 className="text-[10px] uppercase tracking-widest text-sbt-mute">
                 {c.headline ?? "running in a reduced mode"}
               </h3>
@@ -140,8 +154,9 @@ export default function CapabilityBar() {
                   set in .env: {c.missingEnv.join(", ")}
                 </p>
               )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
         <button
           type="button"
