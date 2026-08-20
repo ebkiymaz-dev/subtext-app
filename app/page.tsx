@@ -71,6 +71,19 @@ export default function Home() {
   useEffect(() => {
     setUsage(readUsage());
     setReflection(readReflectionProgress());
+
+    // Android/PWA share target: a shared message arrives as ordinary query
+    // parameters and is placed in the paste box. It is never submitted
+    // automatically, preserving the same explicit local-analysis flow.
+    const params = new URLSearchParams(window.location.search);
+    const shared = [params.get("title"), params.get("text"), params.get("url")]
+      .filter((value): value is string => Boolean(value?.trim()))
+      .join("\n")
+      .trim();
+    if (shared) {
+      setRaw(shared);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
   useEffect(() => {

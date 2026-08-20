@@ -7,7 +7,7 @@
 - **App or game:** App
 - **Free or paid:** Free
 - **Category:** Productivity
-- **Contact email:** partnerslocalmaps@gmail.com
+- **Contact email:** ebkiymaz@gmail.com
 - **Website:** https://neonjungletools.com/subtext/
 - **Privacy policy:** https://neonjungletools.com/subtext/privacy
 
@@ -70,3 +70,17 @@ First Google Play test release. Paste-first conversation analysis, clear green/b
 ## Reviewer note
 
 Subtext is a Trusted Web Activity for the developer-owned PWA at `https://neonjungletools.com/subtext/`. Core analysis runs locally in the browser. No login is required. Use any included example to test the complete flow. The app refuses group chats with more than two named speakers and stops interpretive scoring when acute-distress language is detected.
+
+## Asset checklist
+
+- **App icon:** `store-assets/app-icon-512.png` — 512 × 512, PNG.
+- **Feature graphic:** `store-assets/feature-graphic-1024x500.png` — 1024 × 500, PNG.
+- **Phone screenshots:** `store-assets/screenshots/01` through `05` — 1080 × 1920, PNG.
+- **Signed bundle:** `android-twa/release/subtext-v1-play.aab` — version code 1.
+
+## Submission cautions
+
+- Reconfirm the Deep Read provider and its retention terms immediately before submitting Data Safety.
+- Treat standard hosting logs and optional Deep Read as off-device collection; do not select “no data collected.”
+- Do not claim an independent security review.
+- Do not present Subtext as medical, diagnostic, therapeutic, or a lie detector.
