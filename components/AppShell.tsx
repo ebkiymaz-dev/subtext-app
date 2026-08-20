@@ -57,7 +57,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:px-6">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 sm:pb-16 sm:pt-6">
         {/* Honest provider state. Renders nothing when a model is connected;
             when one is not, says so as the privacy feature it actually is
             rather than as a missing dependency. */}
@@ -65,7 +65,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-sbt-linen">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-2 border-t border-sbt-linen bg-sbt-paper/95 backdrop-blur sm:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        aria-label="Subtext navigation"
+      >
+        <Link
+          href="/"
+          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname === "/" ? "text-sbt-gold-700" : "text-sbt-mute"}`}
+        >
+          <span aria-hidden className="text-base">◉</span>
+          Read
+        </Link>
+        <Link
+          href="/privacy"
+          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname.startsWith("/privacy") ? "text-sbt-gold-700" : "text-sbt-mute"}`}
+        >
+          <span aria-hidden className="text-base">⌾</span>
+          Privacy
+        </Link>
+      </nav>
+
+      <footer className="border-t border-sbt-linen pb-16 sm:pb-0">
         <div className="mx-auto w-full max-w-6xl space-y-1 px-4 py-6 sm:px-6">
           <p className="text-xs leading-relaxed text-sbt-mute">
             Subtext reads language, not people. It cannot detect lies, diagnose anything, or tell

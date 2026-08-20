@@ -24,6 +24,12 @@ import Panel from "@/components/Panel";
 import Interpretations from "@/components/Interpretations";
 import CoachCard from "@/components/CoachCard";
 import AnswerCoachPrompt from "@/components/AnswerCoachPrompt";
+import ReflectionProgress from "@/components/ReflectionProgress";
+import {
+  readReflectionProgress,
+  recordReflection,
+  type ReflectionSnapshot,
+} from "@/lib/progress";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 
@@ -60,8 +66,12 @@ export default function Home() {
   const [deepResult, setDeepResult] = useState<DeepReadResult | null>(null);
   const [providerLabel, setProviderLabel] = useState<string | null>(null);
   const [showAnswerCoach, setShowAnswerCoach] = useState(false);
+  const [reflection, setReflection] = useState<ReflectionSnapshot | null>(null);
 
-  useEffect(() => setUsage(readUsage()), []);
+  useEffect(() => {
+    setUsage(readUsage());
+    setReflection(readReflectionProgress());
+  }, []);
 
   useEffect(() => {
     // Configuration state only — no message text is ever sent to this endpoint.
@@ -129,6 +139,7 @@ export default function Home() {
       }
       setAnalysis(result.analysis);
       setUsage(recordAnalysis());
+      setReflection(recordReflection());
       setActive(null);
       setShowAll(false);
       setDeepState("idle");
@@ -208,6 +219,8 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {reflection ? <ReflectionProgress progress={reflection} compact /> : null}
 
         {/* THE HEADLINE. Nine bars is not an answer; this is the answer. */}
         <section className="rounded-sbt border border-sbt-gold/30 bg-sbt-gold/[0.06] p-5">
@@ -332,19 +345,26 @@ export default function Home() {
   // ── INTAKE ──────────────────────────────────────────────────
   return (
     <div className="space-y-8">
-      <section className="pt-2 sm:pt-6">
-        <SubtextLogo />
-        <h1 className="mx-auto mt-7 max-w-2xl text-center font-display text-[26px] leading-tight text-sbt-ink sm:text-[34px]">
+      <section className="pt-1 sm:pt-6">
+        <div className="hidden sm:block">
+          <SubtextLogo />
+        </div>
+        <p className="text-[10px] uppercase tracking-[0.18em] text-sbt-gold-700 sm:hidden">
+          Private conversation reader
+        </p>
+        <h1 className="mt-2 max-w-2xl text-left font-display text-[24px] leading-tight text-sbt-ink sm:mx-auto sm:mt-7 sm:text-center sm:text-[34px]">
           Paste a conversation. See what the language is carrying.
         </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-center text-[15px] leading-relaxed text-sbt-dusk">
+        <p className="mt-2 max-w-2xl text-left text-[14px] leading-relaxed text-sbt-dusk sm:mx-auto sm:mt-3 sm:text-center sm:text-[15px]">
           Subtext reads word choice and structure, shows you the exact lines behind every signal,
           and gives you the competing readings side by side — including the kindest one. It will
           never tell you someone lied, and it cannot diagnose anything.
         </p>
       </section>
 
-      <section className="rounded-sbt border border-sbt-linen bg-white/70 p-5 shadow-soft">
+      {reflection ? <ReflectionProgress progress={reflection} /> : null}
+
+      <section className="rounded-sbt border border-sbt-linen bg-white/70 p-4 shadow-soft sm:p-5">
         <label htmlFor="paste" className="font-display text-lg text-sbt-ink">
           The conversation
         </label>
@@ -372,7 +392,7 @@ export default function Home() {
             setRaw(e.target.value);
             setParseWarning(null);
           }}
-          rows={9}
+          rows={7}
           placeholder={CONTEXT_PLACEHOLDERS[context]}
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
         />
@@ -513,12 +533,12 @@ export default function Home() {
           </div>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-sbt border border-sbt-linen bg-sbt-paper p-2 shadow-soft sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
           <button
             type="button"
             onClick={run}
             disabled={!raw.trim()}
-            className="rounded-sbt bg-sbt-gold px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700 disabled:opacity-40"
+            className="min-h-12 flex-1 rounded-sbt bg-sbt-gold px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700 disabled:opacity-40 sm:flex-none"
           >
             Read this conversation
           </button>
