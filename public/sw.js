@@ -2,7 +2,7 @@
 // and no caching of anything you paste. A conversation enters local storage
 // only when the user explicitly saves it to their optional private archive.
 const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
-const CACHE = "subtext-shell-v12";
+const CACHE = "subtext-shell-v13";
 const SHELL = [
   BASE + "/",
   BASE + "/plans",

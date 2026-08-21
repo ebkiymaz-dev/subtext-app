@@ -6,7 +6,7 @@ import { analyze } from "@/lib/engine/analyze";
 import { segment } from "@/lib/engine/segment";
 import type { Analysis, CategoryId, ContextId, FamiliarityId } from "@/lib/engine/types";
 import {
-  CONTEXTS, CONTEXT_ORDER, FAMILIARITIES, FAMILIARITY_ORDER, resolveProfile,
+  CONTEXTS, CONTEXT_ORDER, FAMILIARITIES, FAMILIARITY_ORDER,
 } from "@/lib/engine/relationship";
 import SubtextLogo from "@/components/SubtextLogo";
 import { SAMPLES } from "@/lib/samples";
@@ -417,18 +417,10 @@ export default function Home() {
     const themSpeaker = analysis.transcript.messages.find((m) => m.speaker === "them")?.name ?? "The other person";
     return (
       <div className="space-y-5">
-        <header className="flex flex-wrap items-end justify-between gap-3">
+        <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl text-sbt-ink">The read</h1>
-            <p className="mt-1 text-xs text-sbt-mute">
-              {analysis.transcript.messages.length} messages · parsed as{" "}
-              {analysis.transcript.format} · reading{" "}
-              <span className="text-sbt-dusk">
-                {youSpeaker}
-              </span>{" "}
-              as you · {analysis.profile.contextLabel.toLowerCase()} · known{" "}
-              {analysis.profile.familiarityLabel.toLowerCase()}
-            </p>
+            <h1 className="font-display text-2xl text-sbt-ink">Your read</h1>
+            <p className="mt-1 text-xs text-sbt-mute">{youSpeaker} and {themSpeaker} · {analysis.transcript.messages.length} messages</p>
           </div>
           <div className="flex items-center gap-2">
             {!unlocked && usage ? (
@@ -438,25 +430,22 @@ export default function Home() {
             ) : null}
             <button
               type="button"
-              onClick={shareRead}
-              className="rounded-sbt border border-sbt-gold/40 bg-sbt-gold/[0.07] px-3 py-2 text-sm text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.13]"
-            >
-              {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share read"}
-            </button>
-            <button
-              type="button"
-              onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)}
-              className="rounded-sbt border border-sbt-gold/40 bg-sbt-gold/[0.07] px-3 py-2 text-sm text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.13]"
-            >
-              {saveState === "saved" ? "Saved privately" : "Save privately"}
-            </button>
-            <button
-              type="button"
               onClick={reset}
-              className="rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk transition-colors hover:border-sbt-mute"
+              className="rounded-sbt bg-sbt-ink px-3 py-2 text-sm text-sbt-paper transition-colors hover:bg-sbt-dusk"
             >
               New conversation
             </button>
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">Save or share</summary>
+              <div className="absolute right-0 z-20 mt-2 flex min-w-44 flex-col gap-1 rounded-sbt border border-sbt-linen bg-sbt-paper p-2 shadow-soft">
+                <button type="button" onClick={shareRead} className="rounded-sbt px-3 py-2 text-left text-sm text-sbt-dusk hover:bg-sbt-linen/50">
+                  {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share read"}
+                </button>
+                <button type="button" onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)} className="rounded-sbt px-3 py-2 text-left text-sm text-sbt-dusk hover:bg-sbt-linen/50">
+                  {saveState === "saved" ? "Saved privately" : "Save privately"}
+                </button>
+              </div>
+            </details>
           </div>
         </header>
 
@@ -528,27 +517,20 @@ export default function Home() {
           </section>
         ) : null}
 
-        {reflection ? <ReflectionProgress progress={reflection} compact /> : null}
-
         {/* THE HEADLINE. Nine bars is not an answer; this is the answer. */}
         <section className="rounded-sbt border border-sbt-gold/30 bg-sbt-gold/[0.06] p-5">
           <p className="text-[10px] uppercase tracking-widest text-sbt-mute">the short version</p>
           <p className="mt-1.5 font-display text-[17px] leading-relaxed text-sbt-ink sm:text-[19px]">
             {analysis.headline}
           </p>
-          {/* The weighting is shown, not hidden. A tuned read that will not
-              say what it was tuned by is just an opinion with a percentage. */}
-          <p className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] leading-relaxed text-sbt-mute">
-            Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
-            known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span> —
-            expected register {Math.round(analysis.profile.expectedFormality * 100)}%, observed{" "}
-            {Math.round(analysis.signals.themFormality * 100)}%.{" "}
-            {analysis.profile.deviation < 1
-              ? "Relational readings are held back at this length of history."
-              : analysis.profile.deviation > 1
-                ? "Departures from your usual register are scored at full weight."
-                : "Standard weighting."}
-          </p>
+          <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
+            <summary className="cursor-pointer">Why relationship context changes this read</summary>
+            <p className="mt-2 leading-relaxed">
+              Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
+              known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span>. Expected formality{" "}
+              {Math.round(analysis.profile.expectedFormality * 100)}%; observed {Math.round(analysis.signals.themFormality * 100)}%.
+            </p>
+          </details>
         </section>
 
         <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
@@ -637,6 +619,13 @@ export default function Home() {
                 ))}
               </ul>
             </details>
+
+            {reflection && reflection.totalReads > 0 ? (
+              <details className="rounded-sbt border border-sbt-linen bg-sbt-linen/30 p-4">
+                <summary className="cursor-pointer text-xs text-sbt-mute">Your reflection progress</summary>
+                <div className="mt-3"><ReflectionProgress progress={reflection} compact /></div>
+              </details>
+            ) : null}
           </div>
         </div>
         {showAnswerCoach ? (
@@ -655,7 +644,7 @@ export default function Home() {
 
   // ── INTAKE ──────────────────────────────────────────────────
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <section className="pt-1 sm:pt-6">
         <div className="hidden sm:block">
           <SubtextLogo />
@@ -667,91 +656,12 @@ export default function Home() {
           Paste a conversation or upload a screenshot.
         </h1>
         <p className="mt-2 max-w-2xl text-left text-[14px] leading-relaxed text-sbt-dusk sm:mx-auto sm:mt-3 sm:text-center sm:text-[15px]">
-          Subtext reads word choice and structure, shows you the exact lines behind every pattern,
-          and gives you the competing readings side by side — including the kindest one. It will
-          never tell you someone lied, and it cannot diagnose anything.
+          Add the conversation. Subtext separates the speakers and explains the patterns in plain language.
         </p>
       </section>
 
-      {reflection ? <ReflectionProgress progress={reflection} /> : null}
-
       <section className="rounded-sbt border border-sbt-linen bg-white/70 p-4 shadow-soft sm:p-5">
-        <label htmlFor="paste" className="font-display text-lg text-sbt-ink">
-          The conversation
-        </label>
-        <p className="mt-1 text-[12px] text-sbt-mute">
-          Paste WhatsApp-style text, &ldquo;Name: message&rdquo; lines, or let Subtext read chat bubbles from a screenshot.
-        </p>
-
-        <div className="mt-4 flex items-start gap-2.5 rounded-sbt border border-emerald-200 bg-emerald-50/80 px-3.5 py-3 text-emerald-950">
-          <span aria-hidden="true" className="mt-0.5 text-base leading-none">🔒</span>
-          <div>
-            <p className="text-[12px] font-semibold tracking-[0.01em]">
-              On-device by default — your text stays here
-            </p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-900/75">
-              No account required. Conversations are stored only if you deliberately save one to a local profile.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-          <div className="rounded-sbt border border-sbt-linen bg-sbt-paper px-3 py-2.5 text-center text-xs text-sbt-dusk">
-            Paste conversation below
-          </div>
-          <span className="text-center text-[10px] uppercase tracking-widest text-sbt-mute">or</span>
-          <div>
-            <input
-              ref={screenshotInput}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void importScreenshot(file);
-              }}
-            />
-            <button
-              type="button"
-              disabled={ocrState === "reading"}
-              onClick={() => screenshotInput.current?.click()}
-              className="min-h-10 w-full rounded-sbt border-2 border-sbt-gold/45 bg-sbt-gold/[0.08] px-3 py-2 text-xs font-semibold text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.16] disabled:opacity-50"
-            >
-              {ocrState === "reading" ? "Reading screenshot…" : "▧ Upload chat screenshot"}
-            </button>
-          </div>
-        </div>
-
-        <label className="mt-3 block text-[11px] uppercase tracking-wider text-sbt-mute" htmlFor="screenshot-language">
-          Screenshot language
-        </label>
-        <select
-          id="screenshot-language"
-          value={ocrLanguage}
-          disabled={ocrState === "reading"}
-          onChange={(event) => setOcrLanguage(event.target.value as OcrLanguage)}
-          className="mt-1.5 min-h-10 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-3 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30 sm:max-w-md"
-        >
-          {OCR_LANGUAGE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <p className="mt-1 text-[10px] leading-relaxed text-sbt-mute">
-          Automatic recognizes English, Chinese, Japanese, and Russian. Choose one language for a faster, more accurate read. Speaker names preserve their original alphabet.
-        </p>
-
-        {ocrMessage ? (
-          <div className={`mt-3 rounded-sbt border px-3 py-2.5 text-xs leading-relaxed ${ocrState === "error" ? "border-sbt-rose/30 bg-sbt-rose/[0.06] text-sbt-dusk" : "border-sbt-gold/25 bg-sbt-gold/[0.05] text-sbt-dusk"}`}>
-            <p>{ocrMessage}</p>
-            {ocrState === "reading" ? (
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sbt-linen">
-                <div className="h-full rounded-full bg-sbt-gold transition-[width]" style={{ width: `${ocrProgress}%` }} />
-              </div>
-            ) : null}
-            <p className="mt-1 text-[10px] text-sbt-mute">The OCR model may download once; your screenshot itself is not uploaded.</p>
-          </div>
-        ) : null}
-
+        <label htmlFor="paste" className="font-display text-xl text-sbt-ink">Add your conversation</label>
         <textarea
           id="paste"
           value={raw}
@@ -771,9 +681,65 @@ export default function Home() {
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
         />
 
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-emerald-900">
+          <span aria-hidden="true">🔒</span>
+          <span><strong>Private by default.</strong> Analysis happens on this device and nothing is saved unless you choose to archive it.</span>
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center gap-2">
+            <input
+              ref={screenshotInput}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void importScreenshot(file);
+              }}
+            />
+            <button
+              type="button"
+              disabled={ocrState === "reading"}
+              onClick={() => screenshotInput.current?.click()}
+              className="min-h-11 flex-1 rounded-sbt border-2 border-sbt-gold/45 bg-sbt-gold/[0.08] px-3 py-2 text-sm font-semibold text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.16] disabled:opacity-50"
+            >
+              {ocrState === "reading" ? "Reading screenshot…" : "▧ Upload a screenshot instead"}
+            </button>
+          </div>
+          <details className="mt-2 text-[11px] text-sbt-mute">
+            <summary className="cursor-pointer">Screenshot language: {OCR_LANGUAGE_OPTIONS.find((option) => option.value === ocrLanguage)?.label}</summary>
+            <label className="mt-2 block text-[11px] uppercase tracking-wider text-sbt-mute" htmlFor="screenshot-language">Choose language</label>
+            <select
+              id="screenshot-language"
+              value={ocrLanguage}
+              disabled={ocrState === "reading"}
+              onChange={(event) => setOcrLanguage(event.target.value as OcrLanguage)}
+              className="mt-1.5 min-h-10 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-3 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30 sm:max-w-md"
+            >
+              {OCR_LANGUAGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <p className="mt-1">Automatic covers English, Chinese, Japanese, and Russian. Choosing one language is faster.</p>
+          </details>
+        </div>
+
+        {ocrMessage ? (
+          <div className={`mt-3 rounded-sbt border px-3 py-2.5 text-xs leading-relaxed ${ocrState === "error" ? "border-sbt-rose/30 bg-sbt-rose/[0.06] text-sbt-dusk" : "border-sbt-gold/25 bg-sbt-gold/[0.05] text-sbt-dusk"}`}>
+            <p>{ocrMessage}</p>
+            {ocrState === "reading" ? (
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sbt-linen">
+                <div className="h-full rounded-full bg-sbt-gold transition-[width]" style={{ width: `${ocrProgress}%` }} />
+              </div>
+            ) : null}
+            <p className="mt-1 text-[10px] text-sbt-mute">The OCR model may download once; your screenshot itself is not uploaded.</p>
+          </div>
+        ) : null}
+
         {preview && participantNames.length > 1 ? (
           <div className="mt-4">
-            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Which participant is you?</p>
+            <p className="text-[12px] font-medium text-sbt-dusk">I am:</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {participantNames.map((n, index) => (
                 <button
@@ -793,10 +759,7 @@ export default function Home() {
 
             {participantNames.length > 2 ? (
               <div className="mt-4 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.05] p-3">
-                <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Who do you want to understand?</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">
-                  The group overview keeps everyone separate. The detailed language read focuses on one participant at a time so other people are never merged into them.
-                </p>
+                <p className="text-[12px] font-medium text-sbt-dusk">Read this person:</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {participantNames.filter((name) => name !== resolveYouName()).map((name, index) => (
                     <button
@@ -909,11 +872,7 @@ export default function Home() {
             different things again from a sibling you spoke to yesterday and
             one you have not written to properly in five years. */}
         <details className="mt-6 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
-          <summary className="cursor-pointer font-display text-[15px] text-sbt-ink">Customize <span className="font-body text-[12px] text-sbt-mute">— enter details for a more tailored read</span></summary>
-          <p className="mt-1 text-[12px] leading-relaxed text-sbt-mute">
-            These two answers change how every signal below is weighted — not which words are
-            looked for, but what their presence is allowed to mean.
-          </p>
+          <summary className="cursor-pointer font-display text-[15px] text-sbt-ink">Optional details <span className="font-body text-[12px] text-sbt-mute">— improve the read</span></summary>
 
           <div className="mt-4">
             <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Relationship</p>
@@ -934,9 +893,6 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-sbt-mute">
-              {CONTEXTS[context].hint}
-            </p>
           </div>
 
           <div className="mt-5">
@@ -962,28 +918,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* The resolved weighting, stated before the user presses the button.
-              Nothing about this layer is hidden — that is the whole posture. */}
-          <div className="mt-4 rounded-sbt border border-sbt-linen bg-sbt-paper px-3.5 py-3">
-            <p className="text-[10px] uppercase tracking-widest text-sbt-mute">
-              what that changes
-            </p>
-            <p className="mt-1.5 text-[12.5px] leading-relaxed text-sbt-dusk">
-              {FAMILIARITIES[familiarity].note}
-            </p>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-sbt-mute">
-              Expected register for this pairing:{" "}
-              <span className="text-sbt-dusk">
-                {Math.round(resolveProfile(context, familiarity).expectedFormality * 100)}%
-              </span>
-              . Anything above that is scored as distance; anything at or below it is not.
-              {resolveProfile(context, familiarity).pool.length
-                ? ` Extra categories switched on: ${resolveProfile(context, familiarity)
-                    .pool.map((c) => c.replace(/_/g, " "))
-                    .join(", ")}.`
-                : " No extra categories — universal core only."}
-            </p>
-          </div>
         </details>
 
         {blocked ? (
@@ -1030,6 +964,8 @@ export default function Home() {
           ) : null}
         </div>
       </section>
+
+      {reflection && reflection.totalReads > 0 ? <ReflectionProgress progress={reflection} compact /> : null}
 
       <section>
         <h2 className="font-display text-xl text-sbt-ink">See it in action</h2>
