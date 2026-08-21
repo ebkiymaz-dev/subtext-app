@@ -3,7 +3,7 @@
     <style name="Theme.Subtext.Launcher" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowSplashScreenBackground">@color/backgroundColor</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/subtext_launch_mark_animated</item>
-        <item name="android:windowSplashScreenAnimationDuration">700</item>
+        <item name="android:windowSplashScreenAnimationDuration">1000</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">@color/backgroundColor</item>
         <item name="android:navigationBarColor">@color/backgroundColor</item>

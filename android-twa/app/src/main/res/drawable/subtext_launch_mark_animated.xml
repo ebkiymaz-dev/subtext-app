@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/subtext_launch_mark">
-    <target android:name="line_one" android:animation="@animator/subtext_write_one" />
-    <target android:name="line_two" android:animation="@animator/subtext_write_two" />
-    <target android:name="line_three" android:animation="@animator/subtext_write_three" />
-    <target android:name="line_four" android:animation="@animator/subtext_write_four" />
-    <target android:name="line_four_ink" android:animation="@animator/subtext_write_four" />
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/subtext_launch_mark">
+    <target android:name="sub_one" android:animation="@animator/subtext_draw_script" />
+    <target android:name="sub_two" android:animation="@animator/subtext_draw_script" />
+    <target android:name="sub_three" android:animation="@animator/subtext_draw_script" />
+    <target android:name="sub_four" android:animation="@animator/subtext_draw_script" />
+    <target android:name="text_t_one" android:animation="@animator/subtext_draw_serif" />
+    <target android:name="text_e" android:animation="@animator/subtext_draw_serif" />
+    <target android:name="text_x" android:animation="@animator/subtext_draw_serif" />
+    <target android:name="text_t_two" android:animation="@animator/subtext_draw_serif" />
+    <target android:name="wordmark_rule" android:animation="@animator/subtext_draw_rule" />
+    <target android:name="wordmark_dot" android:animation="@animator/subtext_reveal_dot" />
 </animated-vector>

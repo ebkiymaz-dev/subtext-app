@@ -109,7 +109,7 @@
                 android:resource="@color/navigationDividerColorDark" />
 
             <meta-data android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
-                android:resource="@drawable/subtext_splash_static"/>
+                android:resource="@drawable/subtext_wordmark_static"/>
 
             <meta-data android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
                 android:resource="@color/backgroundColor"/>

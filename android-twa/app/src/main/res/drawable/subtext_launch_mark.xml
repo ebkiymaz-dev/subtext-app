@@ -1,50 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#B08D3F"
-        android:pathData="M24,10 H84 A14,14 0,0 1,98 24 V84 A14,14 0,0 1,84 98 H24 A14,14 0,0 1,10 84 V24 A14,14 0,0 1,24 10 Z" />
-    <path
-        android:name="line_one"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M28,38 L80,38"
-        android:strokeColor="#1F1D1A"
-        android:strokeLineCap="round"
-        android:strokeWidth="4"
-        android:trimPathEnd="1" />
-    <path
-        android:name="line_two"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M28,49 L68,49"
-        android:strokeColor="#1F1D1A"
-        android:strokeLineCap="round"
-        android:strokeWidth="4"
-        android:trimPathEnd="1" />
-    <path
-        android:name="line_three"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M28,60 L74,60"
-        android:strokeColor="#1F1D1A"
-        android:strokeLineCap="round"
-        android:strokeWidth="4"
-        android:trimPathEnd="1" />
-    <path
-        android:name="line_four"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M28,73 L55,73"
-        android:strokeColor="#F2E4BE"
-        android:strokeLineCap="round"
-        android:strokeWidth="7"
-        android:trimPathEnd="1" />
-    <path
-        android:name="line_four_ink"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M28,75 L54,75"
-        android:strokeColor="#1F1D1A"
-        android:strokeLineCap="round"
-        android:strokeWidth="3"
-        android:trimPathEnd="1" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="260dp" android:height="90dp" android:viewportWidth="530" android:viewportHeight="184">
+    <group android:translateX="18">
+        <path android:name="sub_one" android:fillColor="@android:color/transparent" android:pathData="M88,18 C86,25 81,30 74,32" android:strokeColor="#B08D3F" android:strokeLineCap="round" android:strokeWidth="7.5" android:trimPathEnd="0" />
+        <path android:name="sub_two" android:fillColor="@android:color/transparent" android:pathData="M74,32 C70,16 50,10 36,20 C22,30 30,46 48,56 C68,67 76,82 68,94 C58,108 28,106 16,90" android:strokeColor="#B08D3F" android:strokeLineCap="round" android:strokeWidth="7.5" android:trimPathEnd="0" />
+        <path android:name="sub_three" android:fillColor="@android:color/transparent" android:pathData="M94,56 C92,78 94,100 106,100 C118,100 124,82 126,56 C126,80 126,96 131,102 C136,108 144,105 150,98" android:strokeColor="#B08D3F" android:strokeLineCap="round" android:strokeWidth="7.5" android:trimPathEnd="0" />
+        <path android:name="sub_four" android:fillColor="@android:color/transparent" android:pathData="M162,104 C162,74 166,40 176,24 C182,14 192,14 192,26 C192,40 176,52 164,62 C176,54 192,54 197,66 C203,80 194,100 176,104 C168,106 162,102 163,96" android:strokeColor="#B08D3F" android:strokeLineCap="round" android:strokeWidth="7.5" android:trimPathEnd="0" />
+    </group>
+    <group android:translateX="224"><path android:name="text_t_one" android:fillColor="@android:color/transparent" android:pathData="M18,22 V86 C18,97 27,102 38,97 M2,44 H38" android:strokeColor="#F2E4BE" android:strokeWidth="9" android:trimPathEnd="0" /></group>
+    <group android:translateX="276"><path android:name="text_e" android:fillColor="@android:color/transparent" android:pathData="M44,90 C40,97 34,100 26,100 C13,100 4,90 4,77 C4,64 13,54 26,54 C38,54 46,63 46,76 H4" android:strokeColor="#F2E4BE" android:strokeWidth="9" android:trimPathEnd="0" /></group>
+    <group android:translateX="336"><path android:name="text_x" android:fillColor="@android:color/transparent" android:pathData="M8,54 L44,100 M44,54 L8,100 M0,54 H18 M34,54 H52 M0,100 H18 M34,100 H52" android:strokeColor="#F2E4BE" android:strokeWidth="9" android:trimPathEnd="0" /></group>
+    <group android:translateX="396"><path android:name="text_t_two" android:fillColor="@android:color/transparent" android:pathData="M18,22 V86 C18,97 27,102 38,97 M2,44 H38" android:strokeColor="#F2E4BE" android:strokeWidth="9" android:trimPathEnd="0" /></group>
+    <path android:name="wordmark_dot" android:fillAlpha="0" android:fillColor="#B08D3F" android:pathData="M462,91 A7,7 0,1 1,462,105 A7,7 0,1 1,462,91" />
+    <path android:name="wordmark_rule" android:fillColor="@android:color/transparent" android:pathData="M92,128 H438" android:strokeColor="#B08D3F" android:strokeLineCap="round" android:strokeWidth="2.5" android:trimPathEnd="0" />
 </vector>

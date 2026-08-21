@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "eval": "tsc -p tsconfig.eval.json && node .eval-out/scripts/eval.js",
     "eval:mobile": "tsc -p tsconfig.eval.json && node .eval-out/scripts/mobile-fuzz.js",
+    "eval:ocr-group": "tsc -p tsconfig.eval.json && node .eval-out/scripts/ocr-group-eval.js",
     "eval:deep": "tsc -p tsconfig.eval.json && node .eval-out/scripts/eval.js --deep"
   },
   "dependencies": {

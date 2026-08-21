@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { analyze } from "@/lib/engine/analyze";
 import { segment } from "@/lib/engine/segment";
-import type { Analysis, CategoryId, ContextId, FamiliarityId, Speaker } from "@/lib/engine/types";
+import type { Analysis, CategoryId, ContextId, FamiliarityId } from "@/lib/engine/types";
 import {
   CONTEXTS, CONTEXT_ORDER, FAMILIARITIES, FAMILIARITY_ORDER, resolveProfile,
 } from "@/lib/engine/relationship";
@@ -33,6 +33,15 @@ import {
 import { recordProductEvent } from "@/lib/product-events";
 import { readChatScreenshot } from "@/lib/screenshot-ocr";
 import {
+  activeParticipants,
+  assignedName,
+  availableParticipants,
+  focusedTranscript,
+  participantStats,
+  type ExcludedMessages,
+  type SpeakerAssignments,
+} from "@/lib/group-chat";
+import {
   createLocalProfile,
   readLocalProfile,
   saveArchivedConversation,
@@ -54,6 +63,17 @@ const CONTEXT_PLACEHOLDERS: Record<ContextId, string> = {
   other: "Paste the conversation you want help reading here…",
 };
 
+const SPEAKER_COLOURS = [
+  "border-emerald-200 bg-emerald-50 text-emerald-900",
+  "border-sky-200 bg-sky-50 text-sky-900",
+  "border-violet-200 bg-violet-50 text-violet-900",
+  "border-amber-200 bg-amber-50 text-amber-900",
+  "border-rose-200 bg-rose-50 text-rose-900",
+  "border-cyan-200 bg-cyan-50 text-cyan-900",
+  "border-lime-200 bg-lime-50 text-lime-900",
+  "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900",
+] as const;
+
 export default function Home() {
   const [raw, setRaw] = useState("");
   const [context, setContext] = useState<ContextId>("dating");
@@ -67,7 +87,11 @@ export default function Home() {
   const [blocked, setBlocked] = useState(false);
   const [parseWarning, setParseWarning] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
-  const [speakerOverrides, setSpeakerOverrides] = useState<Record<string, Speaker>>({});
+  const [speakerAssignments, setSpeakerAssignments] = useState<SpeakerAssignments>({});
+  const [excludedMessages, setExcludedMessages] = useState<ExcludedMessages>({});
+  const [customParticipants, setCustomParticipants] = useState<string[]>([]);
+  const [newParticipant, setNewParticipant] = useState("");
+  const [focusName, setFocusName] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("");
   const [ocrState, setOcrState] = useState<"idle" | "reading" | "done" | "error">("idle");
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -120,12 +144,29 @@ export default function Home() {
 
   // Live preview of the parse, so "which one is you?" is answerable up front.
   const preview = useMemo(() => (raw.trim() ? segment(raw) : null), [raw]);
+  const participantNames = useMemo(
+    () => activeParticipants(preview, speakerAssignments, excludedMessages),
+    [preview, speakerAssignments, excludedMessages]
+  );
+  const availableNames = useMemo(
+    () => availableParticipants(preview, speakerAssignments, customParticipants),
+    [preview, speakerAssignments, customParticipants]
+  );
+  const groupStats = useMemo(
+    () => participantStats(preview, speakerAssignments, excludedMessages),
+    [preview, speakerAssignments, excludedMessages]
+  );
 
   useEffect(() => {
-    if (preview?.names.length && !preview.names.includes(youName ?? "")) {
-      setYouName(preview.names[0]);
+    if (participantNames.length && !participantNames.includes(youName ?? "")) {
+      setYouName(participantNames.find((name) => /^(you|me|myself)$/i.test(name)) ?? participantNames[0]);
     }
-  }, [preview, youName]);
+  }, [participantNames, youName]);
+
+  useEffect(() => {
+    const choices = participantNames.filter((name) => name !== youName);
+    if (!focusName || !choices.includes(focusName)) setFocusName(choices[0] ?? null);
+  }, [participantNames, youName, focusName]);
 
   /**
    * WHICH SIDE IS THE USER — resolved at run time, never trusted from state.
@@ -140,27 +181,39 @@ export default function Home() {
    * dropped in favour of the segmenter's own first-person heuristic.
    */
   function resolveYouName(): string | undefined {
-    const names = preview?.names ?? [];
+    const names = participantNames;
     if (!names.length) return undefined;
     if (youName && names.includes(youName)) return youName;
     return names.find((n) => /^(you|me|myself)$/i.test(n)) ?? names[0];
   }
 
+  function resolveFocusName(): string | undefined {
+    const selectedYou = resolveYouName();
+    const choices = participantNames.filter((name) => name !== selectedYou);
+    if (focusName && choices.includes(focusName)) return focusName;
+    return choices[0];
+  }
+
   function preparedTranscript(): string {
     if (!preview?.messages.length) return raw;
     const selectedYou = resolveYouName();
-    const selectedOther = preview.names.find((name) => name !== selectedYou);
+    const selectedOther = resolveFocusName();
+    if (!selectedYou || !selectedOther) return raw;
     const genericSide = (name?: string) => name === "Left side" || name === "Right side";
     const yourDisplayName = localProfile?.name || (genericSide(selectedYou) ? "You" : selectedYou) || "You";
-    const otherDisplayName = otherName.trim() || (genericSide(selectedOther) ? "Other person" : selectedOther) || "Other person";
-    return preview.messages
-      .map((message) => {
-        const inferred: Speaker = message.name === selectedYou ? "you" : "them";
-        const speaker = speakerOverrides[message.id] ?? inferred;
-        const name = speaker === "you" ? yourDisplayName : otherDisplayName;
-        return `${name}: ${message.text}`;
-      })
-      .join("\n");
+    const directChat = participantNames.length <= 2;
+    const otherDisplayName = directChat && otherName.trim()
+      ? otherName.trim()
+      : genericSide(selectedOther) ? "Other person" : selectedOther;
+    return focusedTranscript(
+      preview,
+      speakerAssignments,
+      excludedMessages,
+      selectedYou,
+      selectedOther,
+      yourDisplayName,
+      otherDisplayName
+    );
   }
 
   function preparedYouName(): string | undefined {
@@ -178,7 +231,10 @@ export default function Home() {
     setOcrState("reading");
     setOcrProgress(0);
     setOcrMessage("Preparing private screenshot reader…");
-    setSpeakerOverrides({});
+    setSpeakerAssignments({});
+    setExcludedMessages({});
+    setCustomParticipants([]);
+    setFocusName(null);
     try {
       const result = await readChatScreenshot(file, ({ status, progress }) => {
         setOcrProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
@@ -188,7 +244,9 @@ export default function Home() {
       setYouName("Right side");
       setOtherName("");
       setOcrState("done");
-      setOcrMessage(`${result.messageCount} chat bubble${result.messageCount === 1 ? "" : "s"} found. Check the speaker split below before reading.`);
+      setOcrMessage(
+        `${result.messageCount} chat bubble${result.messageCount === 1 ? "" : "s"} and ${result.participantCount} participant${result.participantCount === 1 ? "" : "s"} found. Review names and remove any wrong lines before reading.`
+      );
       setParseWarning(null);
       setRunError(null);
       recordProductEvent("screenshot_imported");
@@ -208,10 +266,8 @@ export default function Home() {
     // no-op: read the small local counter synchronously as a fallback.
     const currentUsage = usage ?? readUsage();
     if (!usage) setUsage(currentUsage);
-    if (preview && preview.names.length > 2) {
-      setParseWarning(
-        "Subtext reads one conversation between two people. This paste has more than two named speakers, so remove the other messages before reading it."
-      );
+    if (preview && participantNames.length > 1 && !resolveFocusName()) {
+      setParseWarning("Choose which participant you want Subtext to read in relation to you.");
       return;
     }
     setParseWarning(null);
@@ -403,6 +459,35 @@ export default function Home() {
           <p role="status" className="rounded-sbt border border-sbt-linen bg-white/70 px-3 py-2 text-xs text-sbt-mute">
             Sharing was unavailable on this device. Your conversation was not included or uploaded.
           </p>
+        ) : null}
+
+        {groupStats.length > 2 ? (
+          <section className="rounded-sbt border border-sbt-gold/30 bg-sbt-gold/[0.05] p-4">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-sbt-mute">Group overview</p>
+                <h2 className="mt-1 font-display text-xl text-sbt-ink">Every participant stays separate</h2>
+              </div>
+              <p className="text-xs text-sbt-mute">Detailed read: {themSpeaker}</p>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {groupStats.map((participant, index) => (
+                <div key={participant.name} className={`rounded-sbt border p-3 ${SPEAKER_COLOURS[index % SPEAKER_COLOURS.length]}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium">{participant.name}{participant.name === youSpeaker ? " (you)" : ""}</p>
+                    <p className="text-xs font-semibold">{participant.share}%</p>
+                  </div>
+                  <p className="mt-1 text-[11px] opacity-75">{participant.messages} messages · {participant.words} words</p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/70">
+                    <div className="h-full rounded-full bg-current/60" style={{ width: `${participant.share}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-sbt-mute">
+              Participation share is descriptive, not a judgment. Relational scores below use only {youSpeaker} and {themSpeaker}; messages from other participants are not attributed to either person.
+            </p>
+          </section>
         ) : null}
 
         {showSaveProfile ? (
@@ -649,7 +734,10 @@ export default function Home() {
           value={raw}
           onChange={(e) => {
             setRaw(e.target.value);
-            setSpeakerOverrides({});
+            setSpeakerAssignments({});
+            setExcludedMessages({});
+            setCustomParticipants([]);
+            setFocusName(null);
             setOcrState("idle");
             setOcrMessage(null);
             setParseWarning(null);
@@ -660,60 +748,119 @@ export default function Home() {
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
         />
 
-        {preview && preview.names.length > 1 ? (
+        {preview && participantNames.length > 1 ? (
           <div className="mt-4">
-            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Choose your side — we will colour the conversation before reading it</p>
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Which participant is you?</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {preview.names.map((n) => (
+              {participantNames.map((n, index) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setYouName(n)}
                   className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
                     youName === n
-                      ? "border-emerald-400 bg-emerald-50 text-emerald-800"
-                      : "border-sky-200 bg-sky-50 text-sky-800 hover:border-sky-400"
+                      ? "border-emerald-500 bg-emerald-100 text-emerald-900"
+                      : SPEAKER_COLOURS[index % SPEAKER_COLOURS.length]
                   }`}
                 >
                   {n}
                 </button>
               ))}
             </div>
-            <label className="mt-3 block text-[11px] uppercase tracking-wider text-sbt-mute" htmlFor="other-person-name">
-              Other person&apos;s name <span className="normal-case tracking-normal">(optional, used in the read)</span>
-            </label>
-            <input
-              id="other-person-name"
-              value={otherName}
-              onChange={(event) => setOtherName(event.target.value)}
-              placeholder="For example: Jordan"
-              className="mt-1.5 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-3 py-2.5 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30 sm:max-w-sm"
-            />
+
+            {participantNames.length > 2 ? (
+              <div className="mt-4 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.05] p-3">
+                <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Who do you want to understand?</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">
+                  The group overview keeps everyone separate. The detailed language read focuses on one participant at a time so other people are never merged into them.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {participantNames.filter((name) => name !== resolveYouName()).map((name, index) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setFocusName(name)}
+                      className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                        focusName === name
+                          ? "border-sbt-gold bg-sbt-gold/20 font-medium text-sbt-ink"
+                          : SPEAKER_COLOURS[(index + 1) % SPEAKER_COLOURS.length]
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <label className="mt-3 block text-[11px] uppercase tracking-wider text-sbt-mute" htmlFor="other-person-name">
+                  Other person&apos;s name <span className="normal-case tracking-normal">(optional, used in the read)</span>
+                </label>
+                <input
+                  id="other-person-name"
+                  value={otherName}
+                  onChange={(event) => setOtherName(event.target.value)}
+                  placeholder="For example: Jordan"
+                  className="mt-1.5 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-3 py-2.5 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30 sm:max-w-sm"
+                />
+              </>
+            )}
           </div>
         ) : null}
 
-        {preview && (preview.format === "alternating" || ocrState === "done") ? (
-          <details className="mt-3 rounded-sbt border border-sbt-linen bg-sbt-paper/70 p-3">
+        {preview && (preview.format === "alternating" || ocrState === "done" || participantNames.length > 2) ? (
+          <details open={ocrState === "done" ? true : undefined} className="mt-3 rounded-sbt border border-sbt-linen bg-sbt-paper/70 p-3">
             <summary className="cursor-pointer text-xs font-medium text-sbt-dusk">
-              Check the speaker split <span className="font-normal text-sbt-mute">— tap any wrong message to switch sides</span>
+              Review detected speakers <span className="font-normal text-sbt-mute">— reassign or remove any wrong line</span>
             </summary>
+            <div className="mt-3 flex flex-col gap-2 rounded-sbt border border-sbt-linen bg-white/60 p-2 sm:flex-row">
+              <input
+                value={newParticipant}
+                onChange={(event) => setNewParticipant(event.target.value)}
+                placeholder="Add a missing participant name"
+                className="min-h-10 flex-1 rounded-sbt border border-sbt-linen bg-sbt-paper px-3 text-xs text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30"
+              />
+              <button
+                type="button"
+                disabled={!newParticipant.trim()}
+                onClick={() => {
+                  const name = newParticipant.trim();
+                  if (name && !availableNames.includes(name)) setCustomParticipants((current) => [...current, name]);
+                  setNewParticipant("");
+                }}
+                className="rounded-sbt border border-sbt-gold/40 px-3 py-2 text-xs font-medium text-sbt-gold-700 disabled:opacity-40"
+              >
+                Add participant
+              </button>
+            </div>
             <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
-              {preview.messages.slice(0, 40).map((message) => {
-                const selectedYou = resolveYouName();
-                const inferred: Speaker = message.name === selectedYou ? "you" : "them";
-                const side = speakerOverrides[message.id] ?? inferred;
+              {preview.messages.map((message) => {
+                const speaker = assignedName(message, speakerAssignments);
+                const colourIndex = Math.max(0, availableNames.indexOf(speaker)) % SPEAKER_COLOURS.length;
+                const removed = Boolean(excludedMessages[message.id]);
                 return (
-                  <li key={message.id} className={`flex ${side === "you" ? "justify-end" : "justify-start"}`}>
-                    <button
-                      type="button"
-                      onClick={() => setSpeakerOverrides((current) => ({ ...current, [message.id]: side === "you" ? "them" : "you" }))}
-                      className={`max-w-[88%] rounded-sbt border px-3 py-2 text-left text-xs leading-relaxed ${side === "you" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-sky-200 bg-sky-50 text-sky-900"}`}
-                    >
-                      <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider opacity-70">
-                        {side === "you" ? "Your side" : otherName.trim() || "Other side"}
-                      </span>
-                      {message.text}
-                    </button>
+                  <li key={message.id} className={`flex ${speaker === resolveYouName() ? "justify-end" : "justify-start"} ${removed ? "opacity-45" : ""}`}>
+                    <div className={`max-w-[94%] rounded-sbt border px-3 py-2 text-left text-xs leading-relaxed ${SPEAKER_COLOURS[colourIndex]}`}>
+                      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                        <select
+                          aria-label={`Speaker for message ${message.index + 1}`}
+                          value={speaker}
+                          disabled={removed}
+                          onChange={(event) => setSpeakerAssignments((current) => ({ ...current, [message.id]: event.target.value }))}
+                          className="min-h-8 max-w-[12rem] rounded-full border border-current/20 bg-white/70 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                        >
+                          {availableNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setExcludedMessages((current) => ({ ...current, [message.id]: !current[message.id] }))}
+                          className="min-h-8 rounded-full border border-current/20 bg-white/70 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                        >
+                          {removed ? "Restore" : "Not a message"}
+                        </button>
+                      </div>
+                      <span className={removed ? "line-through" : ""}>{message.text}</span>
+                    </div>
                   </li>
                 );
               })}
@@ -721,10 +868,9 @@ export default function Home() {
           </details>
         ) : null}
 
-        {preview && preview.names.length > 2 ? (
+        {preview && participantNames.length > 2 ? (
           <p className="mt-3 rounded-sbt border border-sbt-amber/35 bg-sbt-amber/10 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
-            This looks like a group chat ({preview.names.length} named speakers). Subtext will only
-            read a direct two-person exchange, so it does not merge several people into one side.
+            Group chat detected: {participantNames.length} participants remain separate. The overview includes everyone; the detailed read compares you with the selected participant only.
           </p>
         ) : null}
 
@@ -878,7 +1024,10 @@ export default function Home() {
                   setContext(s.context);
                   setFamiliarity(s.familiarity);
                   setYouName(s.youName);
-                  setSpeakerOverrides({});
+                  setSpeakerAssignments({});
+                  setExcludedMessages({});
+                  setCustomParticipants([]);
+                  setFocusName(null);
                   setOtherName("");
                   setOcrState("idle");
                   setOcrMessage(null);
