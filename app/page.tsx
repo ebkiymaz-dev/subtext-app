@@ -708,7 +708,9 @@ export default function Home() {
             </button>
           </div>
           <details className="mt-2 text-[11px] text-sbt-mute">
-            <summary className="cursor-pointer">Screenshot language: {OCR_LANGUAGE_OPTIONS.find((option) => option.value === ocrLanguage)?.label}</summary>
+            <summary className="cursor-pointer">
+              Language: {ocrLanguage === "auto" ? "Automatic" : OCR_LANGUAGE_OPTIONS.find((option) => option.value === ocrLanguage)?.label}
+            </summary>
             <label className="mt-2 block text-[11px] uppercase tracking-wider text-sbt-mute" htmlFor="screenshot-language">Choose language</label>
             <select
               id="screenshot-language"

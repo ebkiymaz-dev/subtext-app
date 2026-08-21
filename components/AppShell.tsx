@@ -5,7 +5,6 @@ import { BASE_PATH } from "@/lib/basePath";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { config } from "@/lib/config";
-import CapabilityBar from "@/components/CapabilityBar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -69,10 +68,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 sm:pb-16 sm:pt-6">
-        {/* Honest provider state. Renders nothing when a model is connected;
-            when one is not, says so as the privacy feature it actually is
-            rather than as a missing dependency. */}
-        <CapabilityBar />
         {children}
       </main>
 
