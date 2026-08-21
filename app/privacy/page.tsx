@@ -7,7 +7,7 @@ export default function PrivacyPage() {
   return (
     <article className="mx-auto max-w-3xl space-y-8 rounded-sbt border border-sbt-linen bg-white/70 p-5 shadow-soft sm:p-8">
       <header>
-        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">Effective 18 August 2026</p>
+        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">Effective 21 August 2026</p>
         <h1 className="mt-2 font-display text-3xl text-sbt-ink">Privacy policy</h1>
         <p className="mt-3 text-sm leading-relaxed text-sbt-dusk">
           This policy explains how Subtext, a Neon Jungle Tools product, handles information when
@@ -28,7 +28,11 @@ export default function PrivacyPage() {
         <p>
           Your pasted conversation, speaker choice, relationship context, and the standard analysis
           are processed on your device. Subtext stores a month identifier, read count, and local plan
-          state in browser storage. It does not create a conversation history or contact profile.
+          state, reflection days, and aggregate feature-completion counters in browser storage. The
+          counters contain event names and totals only—never conversation text, names, or URLs.
+          If you deliberately create a local profile and press “Save privately,” Subtext stores
+          that selected conversation and its read in this device&apos;s browser storage. It is never
+          created automatically and does not sync to a server.
           You can remove this local information by clearing the app or browser storage.
         </p>
       </PolicySection>
@@ -61,9 +65,10 @@ export default function PrivacyPage() {
           personal or sensitive information. Conversation content is not intentionally retained by
           the Subtext application after the response is returned. Standard infrastructure logs are
           kept only as long as reasonably needed for security and operations. Because this release
-          has no user accounts or server-side conversation records, there is no account record to
-          delete; local app data can be cleared on the device. You may contact us about a privacy or
-          deletion request at any time.
+          has no server-side user accounts or conversation records, there is no cloud account record
+          to delete. A local profile and individual archived conversations can be deleted inside the
+          Archive screen, and all local app data can also be cleared from the device. You may contact
+          us about a privacy or deletion request at any time.
         </p>
       </PolicySection>
 

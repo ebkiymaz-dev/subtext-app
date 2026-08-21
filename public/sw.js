@@ -1,11 +1,13 @@
 // Subtext — minimal offline shell. No analytics, no third-party requests,
-// and no caching of anything you paste (the app never persists raw text).
+// and no caching of anything you paste. A conversation enters local storage
+// only when the user explicitly saves it to their optional private archive.
 const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
-const CACHE = "subtext-shell-v9";
+const CACHE = "subtext-shell-v10";
 const SHELL = [
   BASE + "/",
   BASE + "/plans",
   BASE + "/privacy",
+  BASE + "/archive",
   BASE + "/manifest.webmanifest",
   BASE + "/icon.svg",
 ];

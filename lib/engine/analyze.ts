@@ -33,7 +33,7 @@ export const METHOD_NOTES = [
   "Everything on this screen is computed on your device, from your text, by rules you could read: segmentation, the crisis screen, bid-and-response classification, register asymmetry, closing-move detection, style matching, and every evidence line.",
   "The engine reads MOVES, not word counts. A short reply is weak evidence; a sign-off, an unreturned bid, or a reply in a more formal register than the message it answers are strong ones. That is why two exchanges of the same length can score very differently.",
   "Metrics that need more text than you pasted are not shown at all rather than shown with a shrug — style matching disappears below 25 words a side, and reply latency only appears when your paste carried timestamps.",
-  "No raw text is persisted anywhere. Only a per-month analysis count lives in local storage.",
+  "No raw text is saved automatically. A conversation is stored only if you explicitly save it to an optional local profile.",
 ];
 
 export type AnalyzeResult =

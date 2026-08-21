@@ -79,11 +79,6 @@ export default function Panel({
 
                 <p className="mt-1.5 text-[13px] leading-relaxed text-sbt-dusk">{c.read}</p>
 
-                <p className="mt-1 text-[10px] uppercase tracking-wider text-sbt-mute">
-                  {c.tier === "on-device" ? "on-device" : "ai-assisted"} · {c.method}
-                  {c.evidence.length ? ` · ${c.evidence.length} evidence line${c.evidence.length > 1 ? "s" : ""}` : ""}
-                </p>
-
                 {active ? (
                   <p className="mt-2 rounded-sbt bg-sbt-paper px-3 py-2 text-[12px] leading-relaxed text-sbt-mute">
                     {c.caveat}

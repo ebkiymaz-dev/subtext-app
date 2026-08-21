@@ -12,7 +12,7 @@ export const LEGITIMACY_LAWS = [
   "Suggestions are options tied to an interpretation — never commands.",
   "No clinical, forensic or legal claims. Ever.",
   "The model cannot drift: strict schema, guardrail prompt, and corroboration against the deterministic signals — on disagreement the lower-confidence honest read wins.",
-  "No raw-text storage, no profiles, no surveillance.",
+  "No automatic raw-text storage, no cloud profiles, no surveillance; local archives require explicit opt-in.",
 ] as const;
 
 /**
@@ -56,4 +56,4 @@ export function assertLegitimate(text: string, where: string): string {
 }
 
 export const CONFIDENCE_CAPTION =
-  "These are signals and confidence, not facts. Every percentage means “how much of the language carries markers associated with this” — never “this is true”.";
+  "Each percentage shows how strongly that pattern appears in these messages. It does not measure the person's feelings or prove their intent.";

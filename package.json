@@ -2,7 +2,7 @@
   "name": "subtext-app",
   "version": "0.1.0",
   "private": true,
-  "description": "SUBTEXT — Grammarly for conversations. On-device psycholinguistic engine (free) + one structured LLM call (premium). No raw text stored.",
+  "description": "SUBTEXT — private conversation reader with on-device analysis, screenshot OCR, and an optional local archive.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -16,7 +16,8 @@
   "dependencies": {
     "next": "14.2.35",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",

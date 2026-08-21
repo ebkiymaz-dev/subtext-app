@@ -215,8 +215,8 @@ try {
     Write-Diagnostic "Permanent key backup verified."
 
     New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-    $releaseApk = Join-Path $releaseDir "subtext-v2-signed.apk"
-    $releaseBundle = Join-Path $releaseDir "subtext-v2-play.aab"
+    $releaseApk = Join-Path $releaseDir "subtext-v3-signed.apk"
+    $releaseBundle = Join-Path $releaseDir "subtext-v3-play.aab"
 
     $env:SUBTEXT_STORE_PASSWORD = $passwords.StorePassword
     $env:SUBTEXT_KEY_PASSWORD = $passwords.KeyPassword
@@ -273,7 +273,7 @@ try {
 
     Clear-Variable passwords -ErrorAction SilentlyContinue
     [System.Windows.Forms.MessageBox]::Show(
-        "Success. The signed Subtext version-2 Google Play bundle is ready and verified.",
+        "Success. The signed Subtext version-3 Google Play bundle is ready and verified.",
         "Subtext release ready"
     ) | Out-Null
 }

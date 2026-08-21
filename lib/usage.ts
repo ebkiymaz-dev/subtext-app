@@ -5,9 +5,8 @@
 // analysis (including free ones) costs a model call in a live build, so
 // the cap is the cost control, not a growth lever.
 //
-// The ONLY thing persisted anywhere in this app is a month key and a
-// count. No raw text, no per-person profile, no history of who you
-// analysed. That refusal is the product's moat, not a missing feature.
+// Usage stores only a month key and count. The separate optional local archive
+// stores raw text only after an explicit user action and never changes billing.
 // ═════════════════════════════════════════════════════════════
 
 import { config } from "./config";

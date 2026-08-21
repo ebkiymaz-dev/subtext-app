@@ -16,11 +16,15 @@ export default function CoachCard({
   locked: boolean;
 }) {
   return (
-    <section className="relative rounded-sbt border border-sbt-linen bg-white/70 p-5">
+    <section id="answer-coach" className="relative overflow-hidden rounded-sbt border-2 border-sbt-gold/55 bg-gradient-to-br from-sbt-gold/[0.18] via-white/90 to-sbt-gold/[0.08] p-5 shadow-soft">
+      <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-sbt-gold/20 blur-2xl" />
       <header className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="font-display text-lg text-sbt-ink">Coach</h2>
-        <span className="rounded-full border border-sbt-gold/40 bg-sbt-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-sbt-gold-700">
-          Answer Coach
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sbt-gold-700">✦ Premium extra</p>
+          <h2 className="mt-0.5 font-display text-xl text-sbt-ink">Answer Coach</h2>
+        </div>
+        <span className="animate-pulse rounded-full bg-sbt-ink px-2.5 py-1 text-[10px] uppercase tracking-wider text-sbt-paper">
+          Next reply
         </span>
       </header>
 
@@ -37,7 +41,7 @@ export default function CoachCard({
         <div className="absolute inset-0 flex items-center justify-center p-4">
           <div className="w-full max-w-xs rounded-sbt border border-sbt-gold/30 bg-white/95 p-4 text-center shadow-soft">
             <p className="font-display text-[15px] text-sbt-ink">
-              Coach reads the whole thread and suggests what you could do next.
+              Answer Coach turns this read into a clearer next reply.
             </p>
             <Link
               href="/plans"

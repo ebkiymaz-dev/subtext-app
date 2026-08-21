@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { analyze } from "@/lib/engine/analyze";
 import { segment } from "@/lib/engine/segment";
-import type { Analysis, CategoryId, ContextId, FamiliarityId } from "@/lib/engine/types";
+import type { Analysis, CategoryId, ContextId, FamiliarityId, Speaker } from "@/lib/engine/types";
 import {
   CONTEXTS, CONTEXT_ORDER, FAMILIARITIES, FAMILIARITY_ORDER, resolveProfile,
 } from "@/lib/engine/relationship";
@@ -30,6 +30,14 @@ import {
   recordReflection,
   type ReflectionSnapshot,
 } from "@/lib/progress";
+import { recordProductEvent } from "@/lib/product-events";
+import { readChatScreenshot } from "@/lib/screenshot-ocr";
+import {
+  createLocalProfile,
+  readLocalProfile,
+  saveArchivedConversation,
+  type LocalProfile,
+} from "@/lib/archive";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 
@@ -59,6 +67,16 @@ export default function Home() {
   const [blocked, setBlocked] = useState(false);
   const [parseWarning, setParseWarning] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [speakerOverrides, setSpeakerOverrides] = useState<Record<string, Speaker>>({});
+  const [otherName, setOtherName] = useState("");
+  const [ocrState, setOcrState] = useState<"idle" | "reading" | "done" | "error">("idle");
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrMessage, setOcrMessage] = useState<string | null>(null);
+  const screenshotInput = useRef<HTMLInputElement>(null);
+  const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
+  const [showSaveProfile, setShowSaveProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
 
   // The AI-assisted tier. Deliberately NOT run automatically: the on-device
   // analysis is complete, and the deep read is the one action in this app
@@ -68,10 +86,12 @@ export default function Home() {
   const [providerLabel, setProviderLabel] = useState<string | null>(null);
   const [showAnswerCoach, setShowAnswerCoach] = useState(false);
   const [reflection, setReflection] = useState<ReflectionSnapshot | null>(null);
+  const [shareState, setShareState] = useState<"idle" | "shared" | "copied" | "failed">("idle");
 
   useEffect(() => {
     setUsage(readUsage());
     setReflection(readReflectionProgress());
+    setLocalProfile(readLocalProfile());
 
     // Android/PWA share target: a shared message arrives as ordinary query
     // parameters and is placed in the paste box. It is never submitted
@@ -126,6 +146,61 @@ export default function Home() {
     return names.find((n) => /^(you|me|myself)$/i.test(n)) ?? names[0];
   }
 
+  function preparedTranscript(): string {
+    if (!preview?.messages.length) return raw;
+    const selectedYou = resolveYouName();
+    const selectedOther = preview.names.find((name) => name !== selectedYou);
+    const genericSide = (name?: string) => name === "Left side" || name === "Right side";
+    const yourDisplayName = localProfile?.name || (genericSide(selectedYou) ? "You" : selectedYou) || "You";
+    const otherDisplayName = otherName.trim() || (genericSide(selectedOther) ? "Other person" : selectedOther) || "Other person";
+    return preview.messages
+      .map((message) => {
+        const inferred: Speaker = message.name === selectedYou ? "you" : "them";
+        const speaker = speakerOverrides[message.id] ?? inferred;
+        const name = speaker === "you" ? yourDisplayName : otherDisplayName;
+        return `${name}: ${message.text}`;
+      })
+      .join("\n");
+  }
+
+  function preparedYouName(): string | undefined {
+    const selected = resolveYouName();
+    if (localProfile?.name) return localProfile.name;
+    return selected === "Left side" || selected === "Right side" ? "You" : selected;
+  }
+
+  async function importScreenshot(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setOcrState("error");
+      setOcrMessage("Choose a PNG, JPG, WEBP, or another image file.");
+      return;
+    }
+    setOcrState("reading");
+    setOcrProgress(0);
+    setOcrMessage("Preparing private screenshot reader…");
+    setSpeakerOverrides({});
+    try {
+      const result = await readChatScreenshot(file, ({ status, progress }) => {
+        setOcrProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
+        setOcrMessage(status === "recognizing text" ? "Reading chat bubbles on this device…" : "Preparing screenshot reader…");
+      });
+      setRaw(result.transcript);
+      setYouName("Right side");
+      setOtherName("");
+      setOcrState("done");
+      setOcrMessage(`${result.messageCount} chat bubble${result.messageCount === 1 ? "" : "s"} found. Check the speaker split below before reading.`);
+      setParseWarning(null);
+      setRunError(null);
+      recordProductEvent("screenshot_imported");
+    } catch (error) {
+      console.error("Subtext screenshot OCR failed", error);
+      setOcrState("error");
+      setOcrMessage("I could not separate chat bubbles in that screenshot. Crop out the phone header and try a clearer image.");
+    } finally {
+      if (screenshotInput.current) screenshotInput.current.value = "";
+    }
+  }
+
   function run() {
     if (!raw.trim()) return;
     // Mobile restores and slow devices can receive a tap before the mount
@@ -146,19 +221,23 @@ export default function Home() {
       return;
     }
     setBlocked(false);
+    recordProductEvent("analysis_started");
     setPhase("analyzing");
 
     // A beat of deliberate slowness — this app never feels twitchy.
     window.setTimeout(() => {
       try {
-        const result = analyze(raw, context, resolveYouName(), familiarity);
+        const input = preparedTranscript();
+        const result = analyze(input, context, preparedYouName(), familiarity);
         if (result.kind === "distress") {
           // THE HARD RULE: no scores, and the free counter is NOT ticked.
           setAnalysis(null);
+          recordProductEvent("distress_guard_shown");
           setPhase("distress");
           return;
         }
         setAnalysis(result.analysis);
+        recordProductEvent("analysis_completed");
         setUsage(recordAnalysis());
         // Progress is optional and must never be able to block the result.
         try {
@@ -175,6 +254,7 @@ export default function Home() {
       } catch (error) {
         // Do not log the pasted conversation. A safe diagnostic is enough.
         console.error("Subtext local analysis failed", error);
+        recordProductEvent("analysis_failed");
         setAnalysis(null);
         setRunError(
           "Subtext could not read that paste on this device. Your text stayed private. Try the included example below; if that works, shorten the paste or remove export headers and try again."
@@ -187,7 +267,7 @@ export default function Home() {
   async function runDeepRead() {
     if (!analysis) return;
     setDeepState("running");
-    const res = await requestDeepRead(raw, context, resolveYouName(), familiarity);
+    const res = await requestDeepRead(preparedTranscript(), context, preparedYouName(), familiarity);
     setDeepResult(res);
     setDeepState("done");
   }
@@ -202,6 +282,55 @@ export default function Home() {
     setDeepResult(null);
     setShowAnswerCoach(false);
     setRunError(null);
+    setShareState("idle");
+    setSaveState("idle");
+    setShowSaveProfile(false);
+  }
+
+  function saveCurrentRead(profile: LocalProfile) {
+    if (!analysis) return;
+    const themSpeaker = analysis.transcript.messages.find((message) => message.speaker === "them")?.name ?? "Other person";
+    saveArchivedConversation(profile, {
+      title: `${analysis.profile.contextLabel} read · ${themSpeaker}`,
+      otherName: themSpeaker,
+      raw: preparedTranscript(),
+      context,
+      familiarity,
+      headline: analysis.headline,
+      categories: analysis.categories.map(({ id, label, percent, read }) => ({ id, label, percent, read })),
+    });
+    recordProductEvent("conversation_archived");
+    setSaveState("saved");
+    setShowSaveProfile(false);
+  }
+
+  async function shareRead() {
+    if (!analysis) return;
+    const leadingReads = analysis.interpretations
+      .slice(0, 2)
+      .map((item) => `${item.weight}% — ${item.title}`)
+      .join("\n");
+    const text = [
+      "Subtext read",
+      analysis.headline,
+      leadingReads ? `\nCompeting interpretations:\n${leadingReads}` : "",
+      "\nGenerated on-device from language patterns. This does not determine intent or diagnose a person.",
+    ].filter(Boolean).join("\n");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "My Subtext read", text });
+        recordProductEvent("read_shared");
+        setShareState("shared");
+      } else {
+        await navigator.clipboard.writeText(text);
+        recordProductEvent("read_shared");
+        setShareState("copied");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setShareState("failed");
+    }
   }
 
   const paid = usage ? isPaid(usage) : false;
@@ -248,6 +377,20 @@ export default function Home() {
             ) : null}
             <button
               type="button"
+              onClick={shareRead}
+              className="rounded-sbt border border-sbt-gold/40 bg-sbt-gold/[0.07] px-3 py-2 text-sm text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.13]"
+            >
+              {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share read"}
+            </button>
+            <button
+              type="button"
+              onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)}
+              className="rounded-sbt border border-sbt-gold/40 bg-sbt-gold/[0.07] px-3 py-2 text-sm text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.13]"
+            >
+              {saveState === "saved" ? "Saved privately" : "Save privately"}
+            </button>
+            <button
+              type="button"
               onClick={reset}
               className="rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk transition-colors hover:border-sbt-mute"
             >
@@ -255,6 +398,45 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {shareState === "failed" ? (
+          <p role="status" className="rounded-sbt border border-sbt-linen bg-white/70 px-3 py-2 text-xs text-sbt-mute">
+            Sharing was unavailable on this device. Your conversation was not included or uploaded.
+          </p>
+        ) : null}
+
+        {showSaveProfile ? (
+          <section className="rounded-sbt border border-sbt-gold/35 bg-sbt-gold/[0.06] p-4">
+            <p className="font-display text-lg text-sbt-ink">Create an optional local profile</p>
+            <p className="mt-1 text-xs leading-relaxed text-sbt-mute">
+              This saves the conversation and result only in this app on this device. There is no login or cloud sync.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                value={profileName}
+                onChange={(event) => setProfileName(event.target.value)}
+                placeholder="Your profile name"
+                className="min-h-11 flex-1 rounded-sbt border border-sbt-linen bg-white px-3 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30"
+              />
+              <button
+                type="button"
+                disabled={!profileName.trim()}
+                onClick={() => {
+                  const profile = createLocalProfile(profileName);
+                  setLocalProfile(profile);
+                  setProfileName("");
+                  saveCurrentRead(profile);
+                }}
+                className="rounded-sbt bg-sbt-gold px-4 py-2.5 text-sm font-medium text-white disabled:opacity-40"
+              >
+                Create profile and save
+              </button>
+              <button type="button" onClick={() => setShowSaveProfile(false)} className="px-3 py-2 text-xs text-sbt-mute">
+                Cancel
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         {reflection ? <ReflectionProgress progress={reflection} compact /> : null}
 
@@ -355,10 +537,8 @@ export default function Home() {
               />
             ) : null}
 
-            <section className="rounded-sbt border border-sbt-linen bg-sbt-linen/40 p-4">
-              <h3 className="text-[10px] uppercase tracking-widest text-sbt-mute">
-                how each reading is produced
-              </h3>
+            <details className="rounded-sbt border border-sbt-linen bg-sbt-linen/30 p-4">
+              <summary className="cursor-pointer text-xs text-sbt-mute">How this read was calculated</summary>
               <ul className="mt-2 space-y-1.5">
                 {analysis.methodNotes.map((n: string) => (
                   <li key={n} className="text-[11px] leading-relaxed text-sbt-dusk">
@@ -366,14 +546,19 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[10px] uppercase tracking-wider text-sbt-mute">
-                {analysis.engineVersion} · everything on this page: on-device
-                {providerLabel ? ` · deep read available via ${providerLabel}` : " · no model provider configured"}
-              </p>
-            </section>
+            </details>
           </div>
         </div>
-        {showAnswerCoach ? <AnswerCoachPrompt suggestions={analysis.coach} onClose={() => setShowAnswerCoach(false)} /> : null}
+        {showAnswerCoach ? (
+          <AnswerCoachPrompt
+            suggestions={analysis.coach}
+            onClose={() => setShowAnswerCoach(false)}
+            onOpen={() => {
+              setShowAnswerCoach(false);
+              window.setTimeout(() => document.getElementById("answer-coach")?.scrollIntoView({ behavior: "smooth", block: "center" }), 30);
+            }}
+          />
+        ) : null}
       </div>
     );
   }
@@ -389,10 +574,10 @@ export default function Home() {
           Private conversation reader
         </p>
         <h1 className="mt-2 max-w-2xl text-left font-display text-[24px] leading-tight text-sbt-ink sm:mx-auto sm:mt-7 sm:text-center sm:text-[34px]">
-          Paste a conversation. See what the language is carrying.
+          Paste a conversation or upload a screenshot.
         </h1>
         <p className="mt-2 max-w-2xl text-left text-[14px] leading-relaxed text-sbt-dusk sm:mx-auto sm:mt-3 sm:text-center sm:text-[15px]">
-          Subtext reads word choice and structure, shows you the exact lines behind every signal,
+          Subtext reads word choice and structure, shows you the exact lines behind every pattern,
           and gives you the competing readings side by side — including the kindest one. It will
           never tell you someone lied, and it cannot diagnose anything.
         </p>
@@ -405,8 +590,7 @@ export default function Home() {
           The conversation
         </label>
         <p className="mt-1 text-[12px] text-sbt-mute">
-          Works with a WhatsApp export, &ldquo;Name: message&rdquo; lines, or plain alternating
-          lines. Nothing is uploaded and nothing is stored — this runs on your device.
+          Paste WhatsApp-style text, &ldquo;Name: message&rdquo; lines, or let Subtext read chat bubbles from a screenshot.
         </p>
 
         <div className="mt-4 flex items-start gap-2.5 rounded-sbt border border-emerald-200 bg-emerald-50/80 px-3.5 py-3 text-emerald-950">
@@ -416,16 +600,58 @@ export default function Home() {
               On-device by default — your text stays here
             </p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-900/75">
-              No account, upload, or stored conversation. An optional Deep Read only runs if you choose it.
+              No account required. Conversations are stored only if you deliberately save one to a local profile.
             </p>
           </div>
         </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+          <div className="rounded-sbt border border-sbt-linen bg-sbt-paper px-3 py-2.5 text-center text-xs text-sbt-dusk">
+            Paste conversation below
+          </div>
+          <span className="text-center text-[10px] uppercase tracking-widest text-sbt-mute">or</span>
+          <div>
+            <input
+              ref={screenshotInput}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void importScreenshot(file);
+              }}
+            />
+            <button
+              type="button"
+              disabled={ocrState === "reading"}
+              onClick={() => screenshotInput.current?.click()}
+              className="min-h-10 w-full rounded-sbt border-2 border-sbt-gold/45 bg-sbt-gold/[0.08] px-3 py-2 text-xs font-semibold text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.16] disabled:opacity-50"
+            >
+              {ocrState === "reading" ? "Reading screenshot…" : "▧ Upload chat screenshot"}
+            </button>
+          </div>
+        </div>
+
+        {ocrMessage ? (
+          <div className={`mt-3 rounded-sbt border px-3 py-2.5 text-xs leading-relaxed ${ocrState === "error" ? "border-sbt-rose/30 bg-sbt-rose/[0.06] text-sbt-dusk" : "border-sbt-gold/25 bg-sbt-gold/[0.05] text-sbt-dusk"}`}>
+            <p>{ocrMessage}</p>
+            {ocrState === "reading" ? (
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sbt-linen">
+                <div className="h-full rounded-full bg-sbt-gold transition-[width]" style={{ width: `${ocrProgress}%` }} />
+              </div>
+            ) : null}
+            <p className="mt-1 text-[10px] text-sbt-mute">The OCR model may download once; your screenshot itself is not uploaded.</p>
+          </div>
+        ) : null}
 
         <textarea
           id="paste"
           value={raw}
           onChange={(e) => {
             setRaw(e.target.value);
+            setSpeakerOverrides({});
+            setOcrState("idle");
+            setOcrMessage(null);
             setParseWarning(null);
             setRunError(null);
           }}
@@ -453,7 +679,46 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            <label className="mt-3 block text-[11px] uppercase tracking-wider text-sbt-mute" htmlFor="other-person-name">
+              Other person&apos;s name <span className="normal-case tracking-normal">(optional, used in the read)</span>
+            </label>
+            <input
+              id="other-person-name"
+              value={otherName}
+              onChange={(event) => setOtherName(event.target.value)}
+              placeholder="For example: Jordan"
+              className="mt-1.5 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-3 py-2.5 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30 sm:max-w-sm"
+            />
           </div>
+        ) : null}
+
+        {preview && (preview.format === "alternating" || ocrState === "done") ? (
+          <details className="mt-3 rounded-sbt border border-sbt-linen bg-sbt-paper/70 p-3">
+            <summary className="cursor-pointer text-xs font-medium text-sbt-dusk">
+              Check the speaker split <span className="font-normal text-sbt-mute">— tap any wrong message to switch sides</span>
+            </summary>
+            <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+              {preview.messages.slice(0, 40).map((message) => {
+                const selectedYou = resolveYouName();
+                const inferred: Speaker = message.name === selectedYou ? "you" : "them";
+                const side = speakerOverrides[message.id] ?? inferred;
+                return (
+                  <li key={message.id} className={`flex ${side === "you" ? "justify-end" : "justify-start"}`}>
+                    <button
+                      type="button"
+                      onClick={() => setSpeakerOverrides((current) => ({ ...current, [message.id]: side === "you" ? "them" : "you" }))}
+                      className={`max-w-[88%] rounded-sbt border px-3 py-2 text-left text-xs leading-relaxed ${side === "you" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-sky-200 bg-sky-50 text-sky-900"}`}
+                    >
+                      <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider opacity-70">
+                        {side === "you" ? "Your side" : otherName.trim() || "Other side"}
+                      </span>
+                      {message.text}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
         ) : null}
 
         {preview && preview.names.length > 2 ? (
@@ -613,6 +878,10 @@ export default function Home() {
                   setContext(s.context);
                   setFamiliarity(s.familiarity);
                   setYouName(s.youName);
+                  setSpeakerOverrides({});
+                  setOtherName("");
+                  setOcrState("idle");
+                  setOcrMessage(null);
                   setParseWarning(null);
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}

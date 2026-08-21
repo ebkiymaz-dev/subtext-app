@@ -75,6 +75,8 @@ interface Ctx {
   context: ContextId;
   /** the context × familiarity weighting — see relationship.ts */
   p: RelationshipProfile;
+  youName: string;
+  otherName: string;
 }
 
 function gather(msgs: Message[], patterns: Pattern[], why?: string): Evidence[] {
@@ -143,6 +145,8 @@ export function scoreCategories(
     s,
     context,
     p: profile,
+    youName: you[0]?.name ?? "You",
+    otherName: them[0]?.name ?? "The other person",
   };
 
   const selected = new Set<CategoryId>([...CORE, ...profile.pool]);
@@ -405,7 +409,7 @@ const ALL_BUILDERS: Builder[] = [
 
       const first = focus[0];
       const toward = focus.filter((b) => b.response === "toward").length;
-      const whose = first.by === "you" ? "You made" : "They made";
+      const whose = first.by === "you" ? `${c.youName} made` : `${c.otherName} made`;
 
       let read: string;
       if (focus.length === 1) {
@@ -422,7 +426,7 @@ const ALL_BUILDERS: Builder[] = [
 
       return {
         id: "bid_response",
-        label: "Bids met",
+        label: "Connection attempts answered",
         percent: pct(met),
         read,
         tier: "on-device",
@@ -430,7 +434,7 @@ const ALL_BUILDERS: Builder[] = [
         tone: met >= 0.6 ? "warm" : met <= 0.35 ? "caution" : "neutral",
         evidence,
         caveat:
-          "This percentage is a proportion, not a confidence: the share of connection-bids in this exchange that were both acknowledged AND extended. A bid can be missed by someone who cares a great deal and is looking at their phone in a queue.",
+          "A connection attempt is a question, invitation, compliment, disclosure, or request for help. This score shows how many received a reply that acknowledged and continued them. Missing one does not prove a lack of care.",
       };
     },
   },
@@ -491,16 +495,16 @@ const ALL_BUILDERS: Builder[] = [
         read =
           "A bid was answered politely and the conversation was ended in the same message. Politeness and engagement are different things, and this reply has the first without the second.";
       } else if (value >= 0.6) {
-        read = "They meet what you open and add to it — questions come back and the thread is carried from both ends.";
+        read = `${c.otherName} responds to what ${c.youName} opens and adds something back, so both sides carry the conversation.`;
       } else if (value >= 0.35) {
-        read = "They answer, but they mostly receive rather than extend: the momentum is coming from your side.";
+        read = `${c.otherName} responds, but usually does not add a new question or topic. Most of the momentum comes from ${c.youName}.`;
       } else {
-        read = "Very little on their side extends anything you opened — no questions back, and nothing added to what you raised.";
+        read = `${c.otherName} gives little back that continues what ${c.youName} opened—few questions and little added detail.`;
       }
 
       return {
         id: "engagement",
-        label: "Engagement / interest",
+        label: `${c.otherName}'s engagement in this conversation`,
         percent: pct(value),
         read,
         tier: "on-device",
@@ -623,10 +627,13 @@ const ALL_BUILDERS: Builder[] = [
         density(warm * 2 + irr * 2 + enth + intens, wordCount(c.themText), 3, c.s) * 0.8 +
           (warm + irr ? 0.15 : 0)
       );
-      const leaning =
-        warm > irr ? "warmth" : irr > warm ? "irritation" : enth ? "surface brightness" : "flat tone";
-
-      let read = `The language carries markers of ${leaning}${warm && irr ? " — both are present in the same thread" : ""}.`;
+      let read = warm > irr
+        ? `${c.otherName}'s wording comes across as warm${irr ? ", although a few irritated cues also appear" : ""}.`
+        : irr > warm
+          ? `${c.otherName}'s wording includes more irritated than warm cues.`
+          : enth
+            ? `${c.otherName}'s wording sounds lively or enthusiastic.`
+            : `${c.otherName}'s messages sound neutral and restrained. There are few clear warmth, irritation, or enthusiasm cues.`;
       if (c.s.enthusiasmOnClosingOnly) {
         read +=
           " The brightness sits on the sign-off rather than on anything they said to you, which is a different thing from being pleased.";
@@ -727,13 +734,13 @@ const ALL_BUILDERS: Builder[] = [
       let read: string;
       if (closeControl === 1 && !s.mutualClose) {
         read =
-          "They decided when the exchange stopped. Whoever ends a conversation is setting its terms, whatever the wording is.";
+          `${c.otherName} ended the exchange. In this conversation, that gave ${c.otherName} more control over when it stopped.`;
       } else if (value >= 0.6) {
-        read = "They are driving: setting topics, asking more, and choosing when threads end.";
+        read = `${c.otherName} is steering this conversation by setting topics, asking more questions, or deciding when threads end.`;
       } else if (value >= 0.4) {
-        read = "The exchange is broadly balanced — neither side is steering it.";
+        read = `The exchange is broadly balanced—neither ${c.youName} nor ${c.otherName} clearly steers it.`;
       } else {
-        read = "You are driving the exchange; they are accommodating rather than directing.";
+        read = `${c.youName} is steering the exchange; ${c.otherName} is mostly responding rather than directing it.`;
       }
 
       return {

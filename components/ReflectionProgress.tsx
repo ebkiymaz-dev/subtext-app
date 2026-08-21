@@ -28,7 +28,7 @@ export default function ReflectionProgress({
           <p className="mt-0.5 text-[12px] text-sbt-dusk">{next}</p>
         </div>
         <div className="flex shrink-0 items-center gap-3 text-center">
-          <Metric value={`${progress.streak}`} label="day rhythm" />
+          <Metric value={`${progress.weekCount}`} label="this week" />
           <Metric value={`${progress.totalReads}`} label="reads" />
         </div>
       </div>
@@ -40,7 +40,7 @@ export default function ReflectionProgress({
       </div>
       {!compact ? (
         <p className="mt-2 text-[10.5px] leading-relaxed text-sbt-mute">
-          One completed read counts per day. Missing a day is never punished, and conversation text is never saved.
+          A read counts once per day toward the weekly goal. There is no streak to lose, and conversation text is never saved.
         </p>
       ) : null}
     </section>

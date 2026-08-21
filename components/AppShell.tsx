@@ -46,6 +46,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Read
             </Link>
+            <Link
+              href="/archive"
+              className={`rounded-sbt px-3 py-1.5 transition-colors ${
+                pathname.startsWith("/archive") ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
+              }`}
+            >
+              Archive
+            </Link>
             {config.billingMode !== "mock" ? (
               <Link
                 href="/plans"
@@ -69,7 +77,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-2 border-t border-sbt-linen bg-sbt-paper/95 backdrop-blur sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-sbt-linen bg-sbt-paper/95 backdrop-blur sm:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Subtext navigation"
       >
@@ -79,6 +87,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         >
           <span aria-hidden className="text-base">◉</span>
           Read
+        </Link>
+        <Link
+          href="/archive"
+          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname.startsWith("/archive") ? "text-sbt-gold-700" : "text-sbt-mute"}`}
+        >
+          <span aria-hidden className="text-base">▣</span>
+          Archive
         </Link>
         <Link
           href="/privacy"
@@ -96,7 +111,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             you what someone meant. It shows you which markers are present and where.
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-widest text-sbt-mute/70">
-            <p>on-device by default · optional deep read only after consent</p>
+            <p>private by default · archive and deep read are always optional</p>
             <Link href="/privacy" className="underline underline-offset-2 hover:text-sbt-dusk">
               Privacy policy
             </Link>

@@ -23,16 +23,16 @@ plugins {
 def twaManifest = [
     applicationId: 'com.neonjungle.subtext',
     hostName: 'neonjungletools.com', // The domain being opened in the TWA.
-    launchUrl: '/subtext/?app=2', // Versioned to prevent a pre-release TWA task from reopening an obsolete shell.
+    launchUrl: '/subtext/?app=3', // Versioned to prevent a pre-release TWA task from reopening an obsolete shell.
     name: 'Subtext', // The application name.
     launcherName: 'Subtext', // The name shown on the Android Launcher.
-    themeColor: '#FAF7F2', // The color used for the status bar.
+    themeColor: '#1F1D1A', // The color used for the status bar.
     themeColorDark: '#000000', // The color used for the dark status bar.
-    navigationColor: '#000000', // The color used for the navigation bar.
+    navigationColor: '#1F1D1A', // The color used for the navigation bar.
     navigationColorDark: '#000000', // The color used for the dark navbar.
-    navigationDividerColor: '#000000', // The navbar divider color.
+    navigationDividerColor: '#B08D3F', // The navbar divider color.
     navigationDividerColorDark: '#000000', // The dark navbar divider color.
-    backgroundColor: '#FAF7F2', // The color used for the splash screen background.
+    backgroundColor: '#1F1D1A', // The color used for the splash screen background.
     enableNotifications: false, // Set to true to enable notification delegation.
     // Every shortcut must include the following fields:
     // - name: String that will show up in the shortcut.
@@ -41,7 +41,7 @@ def twaManifest = [
     // - icon: Name of the resource in the drawable folder to use as an icon.
     shortcuts: [],
     // The duration of fade out animation in milliseconds to be played when removing splash screen.
-    splashScreenFadeOutDuration: 300,
+    splashScreenFadeOutDuration: 500,
     generatorApp: 'bubblewrap-cli', // Application that generated the Android Project
     // The fallback strategy for when Trusted Web Activity is not available. Possible values are
     // 'customtabs' and 'webview'.
@@ -57,8 +57,8 @@ android {
         applicationId "com.neonjungle.subtext"
         minSdkVersion 21
         targetSdkVersion 36
-        versionCode 2
-        versionName "1.1"
+        versionCode 3
+        versionName "1.2"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -123,6 +123,7 @@ android {
         // Sets the color for the background used for the splash screen when launching the
         // Trusted Web Activity.
         resValue "color", "backgroundColor", twaManifest.backgroundColor
+        resValue "color", "subtextGold", '#B08D3F'
 
         // Defines a provider authority for the Splash Screen
         resValue "string", "providerAuthority", twaManifest.applicationId + '.fileprovider'

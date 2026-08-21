@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/subtext_launch_mark">
+    <target android:name="line_one" android:animation="@animator/subtext_write_one" />
+    <target android:name="line_two" android:animation="@animator/subtext_write_two" />
+    <target android:name="line_three" android:animation="@animator/subtext_write_three" />
+    <target android:name="line_four" android:animation="@animator/subtext_write_four" />
+    <target android:name="line_four_ink" android:animation="@animator/subtext_write_four" />
+</animated-vector>
