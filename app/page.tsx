@@ -31,7 +31,11 @@ import {
   type ReflectionSnapshot,
 } from "@/lib/progress";
 import { recordProductEvent } from "@/lib/product-events";
-import { readChatScreenshot } from "@/lib/screenshot-ocr";
+import {
+  OCR_LANGUAGE_OPTIONS,
+  readChatScreenshot,
+  type OcrLanguage,
+} from "@/lib/screenshot-ocr";
 import {
   activeParticipants,
   assignedName,
@@ -96,6 +100,7 @@ export default function Home() {
   const [ocrState, setOcrState] = useState<"idle" | "reading" | "done" | "error">("idle");
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrMessage, setOcrMessage] = useState<string | null>(null);
+  const [ocrLanguage, setOcrLanguage] = useState<OcrLanguage>("auto");
   const screenshotInput = useRef<HTMLInputElement>(null);
   const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
   const [showSaveProfile, setShowSaveProfile] = useState(false);
@@ -239,7 +244,7 @@ export default function Home() {
       const result = await readChatScreenshot(file, ({ status, progress }) => {
         setOcrProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
         setOcrMessage(status === "recognizing text" ? "Reading chat bubbles on this device…" : "Preparing screenshot reader…");
-      });
+      }, ocrLanguage);
       setRaw(result.transcript);
       setYouName("Right side");
       setOtherName("");
@@ -716,6 +721,24 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        <label className="mt-3 block text-[11px] uppercase tracking-wider text-sbt-mute" htmlFor="screenshot-language">
+          Screenshot language
+        </label>
+        <select
+          id="screenshot-language"
+          value={ocrLanguage}
+          disabled={ocrState === "reading"}
+          onChange={(event) => setOcrLanguage(event.target.value as OcrLanguage)}
+          className="mt-1.5 min-h-10 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-3 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30 sm:max-w-md"
+        >
+          {OCR_LANGUAGE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-[10px] leading-relaxed text-sbt-mute">
+          Automatic recognizes English, Chinese, Japanese, and Russian. Choose one language for a faster, more accurate read. Speaker names preserve their original alphabet.
+        </p>
 
         {ocrMessage ? (
           <div className={`mt-3 rounded-sbt border px-3 py-2.5 text-xs leading-relaxed ${ocrState === "error" ? "border-sbt-rose/30 bg-sbt-rose/[0.06] text-sbt-dusk" : "border-sbt-gold/25 bg-sbt-gold/[0.05] text-sbt-dusk"}`}>

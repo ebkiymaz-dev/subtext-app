@@ -1,5 +1,5 @@
 import { activeParticipants, focusedTranscript, participantStats } from "../lib/group-chat";
-import { looksLikeMessage, looksLikeSenderName } from "../lib/screenshot-ocr";
+import { looksLikeMessage, looksLikeSenderName, trainedDataFor } from "../lib/screenshot-ocr";
 import { segment } from "../lib/engine/segment";
 
 const assert = (condition: unknown, message: string) => {
@@ -13,7 +13,13 @@ assert(looksLikeMessage("Okay I will be around. 15.05", 82, true), "ordinary mes
 assert(looksLikeMessage("OK", 82, true), "confident short reply was rejected");
 assert(!looksLikeMessage("OK", 82, false), "text outside a bubble was accepted");
 assert(looksLikeSenderName("Efe"), "simple sender name was rejected");
+for (const name of ["张伟", "李", "佐藤", "Алексей", "Мария", "김민준", "فاطمة", "สมชาย", "שרה"]) {
+  assert(looksLikeSenderName(name), `Unicode sender name was rejected: ${name}`);
+}
 assert(!looksLikeSenderName("14:45"), "timestamp was accepted as a sender");
+assert(trainedDataFor("auto").includes("chi_sim"), "automatic OCR is missing Chinese");
+assert(trainedDataFor("auto").includes("jpn"), "automatic OCR is missing Japanese");
+assert(trainedDataFor("auto").includes("rus"), "automatic OCR is missing Russian");
 
 const group = segment([
   "Me: Are we still meeting?",
