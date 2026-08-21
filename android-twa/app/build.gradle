@@ -152,6 +152,12 @@ android {
 
     }
     buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            resValue "string", "launcherName", "Subtext Debug"
+            resValue "string", "providerAuthority", "com.neonjungle.subtext.debug.fileprovider"
+        }
         release {
             minifyEnabled true
         }
