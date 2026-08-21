@@ -868,60 +868,6 @@ export default function Home() {
           </p>
         ) : null}
 
-        {/* ── WHO IS THIS. The two inputs that retune the engine. ──
-            Both are required to interpret anything: the same message means
-            different things from a colleague and from a sibling, and it means
-            different things again from a sibling you spoke to yesterday and
-            one you have not written to properly in five years. */}
-        <details className="mt-6 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
-          <summary className="cursor-pointer font-display text-[15px] text-sbt-ink">Optional details <span className="font-body text-[12px] text-sbt-mute">— improve the read</span></summary>
-
-          <div className="mt-4">
-            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Relationship</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {CONTEXT_ORDER.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setContext(id)}
-                  aria-pressed={context === id}
-                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                    context === id
-                      ? "border-sbt-ink bg-sbt-ink text-sbt-paper"
-                      : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"
-                  }`}
-                >
-                  {CONTEXTS[id].label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">
-              How long have you known this person?
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-              {FAMILIARITY_ORDER.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setFamiliarity(id)}
-                  aria-pressed={familiarity === id}
-                  className={`rounded-sbt border px-2.5 py-2 text-[13px] leading-tight transition-colors ${
-                    familiarity === id
-                      ? "border-sbt-gold bg-sbt-gold/15 font-medium text-sbt-ink"
-                      : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"
-                  }`}
-                >
-                  {FAMILIARITIES[id].label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-        </details>
-
         {blocked ? (
           <div className="mt-4 rounded-sbt border border-sbt-gold/40 bg-sbt-gold/[0.07] p-4">
             <p className="font-display text-[15px] text-sbt-ink">
@@ -965,6 +911,30 @@ export default function Home() {
             </p>
           ) : null}
         </div>
+
+        <details className="mt-3 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
+          <summary className="cursor-pointer font-display text-[15px] text-sbt-ink">Optional details <span className="font-body text-[12px] text-sbt-mute">— improve the read</span></summary>
+          <div className="mt-4">
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Relationship</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {CONTEXT_ORDER.map((id) => (
+                <button key={id} type="button" onClick={() => setContext(id)} aria-pressed={context === id} className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${context === id ? "border-sbt-ink bg-sbt-ink text-sbt-paper" : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"}`}>
+                  {CONTEXTS[id].label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-5">
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">How long have you known this person?</p>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+              {FAMILIARITY_ORDER.map((id) => (
+                <button key={id} type="button" onClick={() => setFamiliarity(id)} aria-pressed={familiarity === id} className={`rounded-sbt border px-2.5 py-2 text-[13px] leading-tight transition-colors ${familiarity === id ? "border-sbt-gold bg-sbt-gold/15 font-medium text-sbt-ink" : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"}`}>
+                  {FAMILIARITIES[id].label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </details>
       </section>
 
       {reflection && reflection.totalReads > 0 ? <ReflectionProgress progress={reflection} compact /> : null}
