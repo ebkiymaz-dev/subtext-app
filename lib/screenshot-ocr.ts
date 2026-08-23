@@ -54,6 +54,13 @@ const SYSTEM_LINE = /^(?:read|delivered|sent|today|yesterday|typing…?|message 
 const TIME_PREFIX = /^\s*\d{1,2}:\d{2}(?:\s*[ap]m)?\b/i;
 const ODD_SYMBOL = /[©®™~=<>\[\]{}|\\]/;
 
+export function normaliseOcrLine(text: string): string {
+  // Tesseract commonly reads a capital I as a pipe at the beginning of a
+  // sentence. A standalone pipe is not natural chat punctuation, so this is a
+  // safe correction before the debris filter evaluates the message.
+  return text.replace(/(^|\s)\|(?=\s|$)/g, "$1I").replace(/\s+/g, " ").trim();
+}
+
 function colourDistance(a: Rgb, b: Rgb): number {
   return Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
 }
@@ -179,6 +186,52 @@ function overlapsExisting(candidate: OcrParagraph, paragraphs: OcrParagraph[]): 
   });
 }
 
+/** Finds filled, saturated chat bubbles without uploading or interpreting pixels. */
+export function detectColouredBubbleBoxes(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number
+): Box[] {
+  const rows: Array<{ y: number; x0: number; x1: number }> = [];
+  const minimumColouredPixels = Math.max(12, Math.floor(width * 0.06));
+  for (let y = 0; y < height; y += 1) {
+    let count = 0;
+    let x0 = width;
+    let x1 = 0;
+    for (let x = 0; x < width; x += 2) {
+      const index = (y * width + x) * 4;
+      if (pixels[index + 3] < 220) continue;
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      if (Math.max(red, green, blue) - Math.min(red, green, blue) < 38) continue;
+      count += 2;
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x + 2);
+    }
+    if (count >= minimumColouredPixels) rows.push({ y, x0, x1 });
+  }
+
+  const boxes: Box[] = [];
+  for (const row of rows) {
+    const current = boxes[boxes.length - 1];
+    if (current && row.y <= current.y1 + 3) {
+      current.y1 = row.y + 1;
+      current.x0 = Math.min(current.x0, row.x0);
+      current.x1 = Math.max(current.x1, row.x1);
+    } else {
+      boxes.push({ x0: row.x0, y0: row.y, x1: row.x1, y1: row.y + 1 });
+    }
+  }
+  return boxes.filter((box) => {
+    const boxWidth = box.x1 - box.x0;
+    const boxHeight = box.y1 - box.y0;
+    return boxWidth >= width * 0.12
+      && boxHeight >= Math.max(18, height * 0.012)
+      && boxHeight <= height * 0.28;
+  });
+}
+
 export function chooseScreenshotSender(
   side: OcrSide,
   explicitSender: string | undefined,
@@ -231,13 +284,22 @@ export async function readChatScreenshot(
     // its line boxes as the spatial source of truth, then rebuild a bubble from
     // adjacent lines below. This preserves group-chat sender labels instead of
     // letting one large OCR paragraph swallow the messages beneath it.
-    const extractParagraphs = (blocks: NonNullable<Awaited<ReturnType<typeof worker.recognize>>["data"]["blocks"]>): OcrParagraph[] => blocks
+    const extractParagraphs = (
+      blocks: NonNullable<Awaited<ReturnType<typeof worker.recognize>>["data"]["blocks"]>,
+      offsetX = 0,
+      offsetY = 0
+    ): OcrParagraph[] => blocks
       .flatMap((block) => block.paragraphs.flatMap((paragraph) => paragraph.lines))
       .map((line) => {
         const rawLines = line.text.split(/\r\n|\r|\n/)
-          .map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+          .map(normaliseOcrLine).filter(Boolean);
         const text = rawLines.join(" ").trim();
-        const bbox = line.bbox;
+        const bbox = {
+          x0: line.bbox.x0 + offsetX,
+          y0: line.bbox.y0 + offsetY,
+          x1: line.bbox.x1 + offsetX,
+          y1: line.bbox.y1 + offsetY,
+        };
         const left = bbox.x0;
         const right = width - bbox.x1;
         const side: OcrParagraph["side"] = Math.abs(left - right) < width * 0.055
@@ -269,28 +331,34 @@ export async function readChatScreenshot(
       right: paragraphs.filter((paragraph) => paragraph.side === "right").length,
     };
 
-    // White-on-colour chat bubbles can disappear in a normal OCR pass. If one
-    // side is sparse, a local inverted pass recovers it; screenshot pixels never
-    // leave the device. Spatial overlap removes duplicates from the two passes.
+    // Whole-page segmentation commonly ignores white text on a coloured bubble.
+    // If one side is sparse, detect saturated bubble rectangles and read each
+    // crop as a single block. This stays fully on-device and is both faster and
+    // more reliable than another whole-screenshot OCR pass.
     if (sideCounts.left < 2 || sideCounts.right < 2) {
-      const invertedCanvas = document.createElement("canvas");
-      invertedCanvas.width = width;
-      invertedCanvas.height = height;
-      const invertedContext = invertedCanvas.getContext("2d");
-      if (invertedContext) {
-        const image = context.getImageData(0, 0, width, height);
-        for (let pixel = 0; pixel < image.data.length; pixel += 4) {
-          image.data[pixel] = 255 - image.data[pixel];
-          image.data[pixel + 1] = 255 - image.data[pixel + 1];
-          image.data[pixel + 2] = 255 - image.data[pixel + 2];
+      const image = context.getImageData(0, 0, width, height);
+      const colouredBoxes = detectColouredBubbleBoxes(image.data, width, height);
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, preserve_interword_spaces: "1" });
+      for (const box of colouredBoxes) {
+        const cropWidth = Math.max(1, Math.ceil(box.x1 - box.x0));
+        const cropHeight = Math.max(1, Math.ceil(box.y1 - box.y0));
+        const cropCanvas = document.createElement("canvas");
+        cropCanvas.width = cropWidth;
+        cropCanvas.height = cropHeight;
+        const cropContext = cropCanvas.getContext("2d");
+        if (!cropContext) continue;
+        cropContext.drawImage(canvas, box.x0, box.y0, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+        const cropResult = await worker.recognize(cropCanvas, {}, { blocks: true, text: true });
+        const cropParagraphs = extractParagraphs(cropResult.data.blocks ?? [], box.x0, box.y0);
+        if (cropParagraphs.length) {
+          // A crop is the higher-quality reading for this coloured region. Drop
+          // any overlapping whole-page fragment (often gibberish) before adding
+          // the isolated lines, rather than letting that fragment suppress them.
+          paragraphs = paragraphs.filter((paragraph) => !overlapsExisting(paragraph, cropParagraphs));
+          paragraphs.push(...cropParagraphs);
         }
-        invertedContext.putImageData(image, 0, 0);
-        const invertedResult = await worker.recognize(invertedCanvas, {}, { blocks: true, text: true });
-        for (const candidate of extractParagraphs(invertedResult.data.blocks ?? [])) {
-          if (!overlapsExisting(candidate, paragraphs)) paragraphs.push(candidate);
-        }
-        paragraphs.sort((a, b) => a.bbox.y0 - b.bbox.y0);
       }
+      paragraphs.sort((a, b) => a.bbox.y0 - b.bbox.y0);
     }
 
     paragraphs = groupScreenshotParagraphs(paragraphs, width, height);

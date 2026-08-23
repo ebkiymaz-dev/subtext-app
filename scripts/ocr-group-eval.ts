@@ -1,5 +1,5 @@
 import { activeParticipants, focusedTranscript, participantStats } from "../lib/group-chat";
-import { chooseScreenshotSender, groupScreenshotParagraphs, looksLikeMessage, looksLikeSenderName, trainedDataFor } from "../lib/screenshot-ocr";
+import { chooseScreenshotSender, detectColouredBubbleBoxes, groupScreenshotParagraphs, looksLikeMessage, looksLikeSenderName, normaliseOcrLine, trainedDataFor } from "../lib/screenshot-ocr";
 import { segment } from "../lib/engine/segment";
 
 const assert = (condition: unknown, message: string) => {
@@ -11,6 +11,7 @@ for (const debris of ["N= ED", "14:45 © “Zr 1 °", "TB8231 x Efe", "[3", "Ck 
 }
 assert(looksLikeMessage("Okay I will be around. 15.05", 82, true), "ordinary message was rejected");
 assert(looksLikeMessage("OK", 82, true), "confident short reply was rejected");
+assert(normaliseOcrLine("| can bring the tickets.") === "I can bring the tickets.", "capital-I OCR artifact was not corrected");
 assert(!looksLikeMessage("OK", 82, false), "text outside a bubble was accepted");
 assert(looksLikeSenderName("Efe"), "simple sender name was rejected");
 for (const name of ["张伟", "李", "佐藤", "Алексей", "Мария", "김민준", "فاطمة", "สมชาย", "שרה"]) {
@@ -20,6 +21,25 @@ assert(!looksLikeSenderName("14:45"), "timestamp was accepted as a sender");
 assert(trainedDataFor("auto").includes("chi_sim"), "automatic OCR is missing Chinese");
 assert(trainedDataFor("auto").includes("jpn"), "automatic OCR is missing Japanese");
 assert(trainedDataFor("auto").includes("rus"), "automatic OCR is missing Russian");
+
+const colouredPixels = new Uint8ClampedArray(100 * 100 * 4);
+for (let pixel = 0; pixel < colouredPixels.length; pixel += 4) {
+  colouredPixels[pixel] = 248;
+  colouredPixels[pixel + 1] = 248;
+  colouredPixels[pixel + 2] = 248;
+  colouredPixels[pixel + 3] = 255;
+}
+for (let y = 20; y < 40; y += 1) {
+  for (let x = 55; x < 95; x += 1) {
+    const pixel = (y * 100 + x) * 4;
+    colouredPixels[pixel] = 72;
+    colouredPixels[pixel + 1] = 136;
+    colouredPixels[pixel + 2] = 235;
+  }
+}
+const colouredBoxes = detectColouredBubbleBoxes(colouredPixels, 100, 100);
+assert(colouredBoxes.length === 1, "expected one coloured bubble, received " + colouredBoxes.length);
+assert(colouredBoxes[0].x0 <= 56 && colouredBoxes[0].x1 >= 94, "coloured bubble bounds were clipped");
 
 const lastNamed = new Map<"left" | "right", string>();
 const colourSpeakers = new Map<string, string>();
