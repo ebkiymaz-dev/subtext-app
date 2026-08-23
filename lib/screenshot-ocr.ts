@@ -192,7 +192,7 @@ export function detectColouredBubbleBoxes(
   width: number,
   height: number
 ): Box[] {
-  const rows: Array<{ y: number; x0: number; x1: number }> = [];
+  const rows: Array<{ y: number; x0: number; x1: number; count: number }> = [];
   const minimumColouredPixels = Math.max(12, Math.floor(width * 0.06));
   for (let y = 0; y < height; y += 1) {
     let count = 0;
@@ -209,27 +209,30 @@ export function detectColouredBubbleBoxes(
       x0 = Math.min(x0, x);
       x1 = Math.max(x1, x + 2);
     }
-    if (count >= minimumColouredPixels) rows.push({ y, x0, x1 });
+    if (count >= minimumColouredPixels) rows.push({ y, x0, x1, count });
   }
 
-  const boxes: Box[] = [];
+  const boxes: Array<Box & { colouredPixels: number }> = [];
   for (const row of rows) {
     const current = boxes[boxes.length - 1];
     if (current && row.y <= current.y1 + 3) {
       current.y1 = row.y + 1;
       current.x0 = Math.min(current.x0, row.x0);
       current.x1 = Math.max(current.x1, row.x1);
+      current.colouredPixels += row.count;
     } else {
-      boxes.push({ x0: row.x0, y0: row.y, x1: row.x1, y1: row.y + 1 });
+      boxes.push({ x0: row.x0, y0: row.y, x1: row.x1, y1: row.y + 1, colouredPixels: row.count });
     }
   }
   return boxes.filter((box) => {
     const boxWidth = box.x1 - box.x0;
     const boxHeight = box.y1 - box.y0;
+    const fillRatio = box.colouredPixels / Math.max(1, boxWidth * boxHeight);
     return boxWidth >= width * 0.12
       && boxHeight >= Math.max(18, height * 0.012)
-      && boxHeight <= height * 0.28;
-  });
+      && boxHeight <= height * 0.28
+      && fillRatio >= 0.35;
+  }).map(({ x0, y0, x1, y1 }) => ({ x0, y0, x1, y1 }));
 }
 
 export function chooseScreenshotSender(
@@ -287,7 +290,8 @@ export async function readChatScreenshot(
     const extractParagraphs = (
       blocks: NonNullable<Awaited<ReturnType<typeof worker.recognize>>["data"]["blocks"]>,
       offsetX = 0,
-      offsetY = 0
+      offsetY = 0,
+      forcedSide?: OcrParagraph["side"]
     ): OcrParagraph[] => blocks
       .flatMap((block) => block.paragraphs.flatMap((paragraph) => paragraph.lines))
       .map((line) => {
@@ -302,8 +306,8 @@ export async function readChatScreenshot(
         };
         const left = bbox.x0;
         const right = width - bbox.x1;
-        const side: OcrParagraph["side"] = Math.abs(left - right) < width * 0.055
-          ? "center" : left < right ? "left" : "right";
+        const side: OcrParagraph["side"] = forcedSide ?? (Math.abs(left - right) < width * 0.055
+          ? "center" : left < right ? "left" : "right");
         const padX = Math.max(7, width * 0.009);
         const padY = Math.max(5, height * 0.004);
         const bubbleColour = dominantColour(context, width, height, {
@@ -349,7 +353,11 @@ export async function readChatScreenshot(
         if (!cropContext) continue;
         cropContext.drawImage(canvas, box.x0, box.y0, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
         const cropResult = await worker.recognize(cropCanvas, {}, { blocks: true, text: true });
-        const cropParagraphs = extractParagraphs(cropResult.data.blocks ?? [], box.x0, box.y0);
+        const boxLeft = box.x0;
+        const boxRight = width - box.x1;
+        const boxSide: OcrParagraph["side"] = Math.abs(boxLeft - boxRight) < width * 0.055
+          ? "center" : boxLeft < boxRight ? "left" : "right";
+        const cropParagraphs = extractParagraphs(cropResult.data.blocks ?? [], box.x0, box.y0, boxSide);
         if (cropParagraphs.length) {
           // A crop is the higher-quality reading for this coloured region. Drop
           // any overlapping whole-page fragment (often gibberish) before adding
