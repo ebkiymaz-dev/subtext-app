@@ -143,29 +143,29 @@ export const FUTURE_ANCHOR: Pattern[] = [
 
 /** BIDS FOR CONNECTION — Gottman's unit. Each kind is detected separately. */
 export const BID_COMPLIMENT: Pattern[] = [
-  p("\\byou (look|looked|are|were|seem|seemed)\\s+(so\\s+|really\\s+|absolutely\\s+|very\\s+)?(amazing|beautiful|gorgeous|stunning|lovely|great|good|incredible|handsome|pretty|cute|radiant|wonderful|fantastic)\\b", "a compliment — a bid for connection, and one of the highest-stakes kinds"),
+  p("\\byou (look|looked|are|were|seem|seemed)\\s+(so\\s+|really\\s+|absolutely\\s+|very\\s+)?(amazing|beautiful|gorgeous|stunning|lovely|great|good|incredible|handsome|pretty|cute|radiant|wonderful|fantastic)\\b", "a compliment — an attempt to connect, and one of the more exposed kinds"),
   p("\\b(i love your|i really like your|you'?re so (good|clever|funny|kind|talented|smart)|you'?re the (best|sweetest)|that was (brilliant|amazing|so good))\\b", "praise directed at the other person"),
   p("\\b(you (did|were) (great|amazing|brilliant|so well)|proud of you|well done)\\b", "praise for something they did"),
 ];
 
 export const BID_AFFECTION: Pattern[] = [
-  p("\\b(miss you|love you|thinking of you|thinking about you|wish you were here|can'?t stop thinking)\\b", "an affection bid — the most exposed kind there is"),
+  p("\\b(miss you|love you|thinking of you|thinking about you|wish you were here|can'?t stop thinking)\\b", "an expression of affection — a very exposed attempt to connect"),
 ];
 
 export const BID_INVITATION: Pattern[] = [
-  p("\\b(are you free|want to (meet|grab|get|go|come)|wanna (meet|grab|get|go|come)|shall we|let'?s (meet|grab|get|go|do)|same again|do you want to|fancy a|dinner|drinks|coffee)\\b", "an invitation — a bid with a concrete cost attached"),
+  p("\\b(are you free|want to (meet|grab|get|go|come)|wanna (meet|grab|get|go|come)|shall we|let'?s (meet|grab|get|go|do)|same again|do you want to|fancy a|dinner|drinks|coffee)\\b", "an invitation — a concrete attempt to continue the connection"),
 ];
 
 export const BID_SELF_DISCLOSURE: Pattern[] = [
-  p("\\b(i'?ve been (feeling|struggling|thinking|worried)|i feel|i felt|i'?m (worried|nervous|scared|upset|hurt|sad|lonely)|to be honest,? i|i wanted to tell you|it'?s been hard)\\b", "self-disclosure — a bid that asks to be met, not solved"),
+  p("\\b(i'?ve been (feeling|struggling|thinking|worried)|i feel|i felt|i'?m (worried|nervous|scared|upset|hurt|sad|lonely)|to be honest,? i|i wanted to tell you|it'?s been hard)\\b", "self-disclosure — an attempt to be understood, not necessarily solved"),
 ];
 
 export const BID_NEWS: Pattern[] = [
-  p("\\b(guess what|you'?ll never guess|i (just )?got|i finally|big news|i passed|i got the|it happened)\\b", "shared news — a bid to be celebrated with"),
+  p("\\b(guess what|you'?ll never guess|i (just )?got|i finally|big news|i passed|i got the|it happened)\\b", "shared news — an invitation to celebrate together"),
 ];
 
 export const BID_HELP: Pattern[] = [
-  p("\\b(can you|could you|would you mind|do you think you could|any chance you|i need a hand|help me)\\b", "a request — a bid with an ask attached"),
+  p("\\b(can you|could you|would you mind|do you think you could|any chance you|i need a hand|help me)\\b", "a request — a direct ask for help or action"),
 ];
 
 /** ENTHUSIASM — the marker set, so we can ask WHERE it lands, not just whether it exists. */

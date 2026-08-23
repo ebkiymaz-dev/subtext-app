@@ -1,5 +1,5 @@
 import { activeParticipants, focusedTranscript, participantStats } from "../lib/group-chat";
-import { looksLikeMessage, looksLikeSenderName, trainedDataFor } from "../lib/screenshot-ocr";
+import { chooseScreenshotSender, looksLikeMessage, looksLikeSenderName, trainedDataFor } from "../lib/screenshot-ocr";
 import { segment } from "../lib/engine/segment";
 
 const assert = (condition: unknown, message: string) => {
@@ -20,6 +20,14 @@ assert(!looksLikeSenderName("14:45"), "timestamp was accepted as a sender");
 assert(trainedDataFor("auto").includes("chi_sim"), "automatic OCR is missing Chinese");
 assert(trainedDataFor("auto").includes("jpn"), "automatic OCR is missing Japanese");
 assert(trainedDataFor("auto").includes("rus"), "automatic OCR is missing Russian");
+
+const lastNamed = new Map<"left" | "right", string>();
+const colourSpeakers = new Map<string, string>();
+assert(chooseScreenshotSender("right", undefined, "blue", lastNamed, colourSpeakers) === "You", "right-side screenshot bubble was not assigned to the user");
+assert(chooseScreenshotSender("left", "Мария", "grey", lastNamed, colourSpeakers) === "Мария", "explicit Unicode group sender was lost");
+assert(chooseScreenshotSender("left", undefined, "grey", lastNamed, colourSpeakers) === "Мария", "consecutive group bubble did not continue the last named sender");
+lastNamed.clear();
+assert(chooseScreenshotSender("left", undefined, "grey", lastNamed, colourSpeakers).startsWith("Unclear speaker"), "uncertain group sender was presented as a known person");
 
 const group = segment([
   "Me: Are we still meeting?",

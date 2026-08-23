@@ -51,6 +51,7 @@ import {
   saveArchivedConversation,
   type LocalProfile,
 } from "@/lib/archive";
+import { clearActiveRead, keepActiveRead, readActiveRead } from "@/lib/active-read";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 
@@ -101,6 +102,7 @@ export default function Home() {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrMessage, setOcrMessage] = useState<string | null>(null);
   const [ocrLanguage, setOcrLanguage] = useState<OcrLanguage>("auto");
+  const [ocrSpeakersConfirmed, setOcrSpeakersConfirmed] = useState(true);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
   const [showSaveProfile, setShowSaveProfile] = useState(false);
@@ -122,6 +124,21 @@ export default function Home() {
     setReflection(readReflectionProgress());
     setLocalProfile(readLocalProfile());
 
+    const activeRead = readActiveRead();
+    if (activeRead) {
+      setRaw(activeRead.raw);
+      setContext(activeRead.context);
+      setFamiliarity(activeRead.familiarity);
+      setYouName(activeRead.youName);
+      setFocusName(activeRead.focusName);
+      setOtherName(activeRead.otherName);
+      setSpeakerAssignments(activeRead.speakerAssignments);
+      setExcludedMessages(activeRead.excludedMessages);
+      setCustomParticipants(activeRead.customParticipants);
+      setAnalysis(activeRead.analysis);
+      setPhase("result");
+    }
+
     // Android/PWA share target: a shared message arrives as ordinary query
     // parameters and is placed in the paste box. It is never submitted
     // automatically, preserving the same explicit local-analysis flow.
@@ -131,6 +148,9 @@ export default function Home() {
       .join("\n")
       .trim();
     if (shared) {
+      clearActiveRead();
+      setAnalysis(null);
+      setPhase("intake");
       setRaw(shared);
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -249,17 +269,18 @@ export default function Home() {
     setExcludedMessages({});
     setCustomParticipants([]);
     setFocusName(null);
+    setOcrSpeakersConfirmed(false);
     try {
       const result = await readChatScreenshot(file, ({ status, progress }) => {
         setOcrProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
         setOcrMessage(status === "recognizing text" ? "Reading chat bubbles on this device…" : "Preparing screenshot reader…");
       }, ocrLanguage);
       setRaw(result.transcript);
-      setYouName("Right side");
+      setYouName(result.participants.includes("You") ? "You" : null);
       setOtherName("");
       setOcrState("done");
       setOcrMessage(
-        `${result.messageCount} chat bubble${result.messageCount === 1 ? "" : "s"} and ${result.participantCount} participant${result.participantCount === 1 ? "" : "s"} found. Review names and remove any wrong lines before reading.`
+        `${result.messageCount} chat bubble${result.messageCount === 1 ? "" : "s"} and ${result.participantCount} possible participant${result.participantCount === 1 ? "" : "s"} found. Names are estimates—confirm every speaker before reading.`
       );
       setParseWarning(null);
       setRunError(null);
@@ -280,6 +301,10 @@ export default function Home() {
     // no-op: read the small local counter synchronously as a fallback.
     const currentUsage = usage ?? readUsage();
     if (!usage) setUsage(currentUsage);
+    if (ocrState === "done" && !ocrSpeakersConfirmed) {
+      setParseWarning("Confirm the detected speakers before reading this screenshot.");
+      return;
+    }
     if (preview && participantNames.length > 1 && !resolveFocusName()) {
       setParseWarning("Choose which participant you want Subtext to read in relation to you.");
       return;
@@ -307,6 +332,18 @@ export default function Home() {
           return;
         }
         setAnalysis(result.analysis);
+        keepActiveRead({
+          raw,
+          context,
+          familiarity,
+          youName: resolveYouName() ?? null,
+          focusName: resolveFocusName() ?? null,
+          otherName,
+          speakerAssignments: { ...speakerAssignments },
+          excludedMessages: { ...excludedMessages },
+          customParticipants: [...customParticipants],
+          analysis: result.analysis,
+        });
         recordProductEvent("analysis_completed");
         setUsage(recordAnalysis());
         // Progress is optional and must never be able to block the result.
@@ -342,6 +379,7 @@ export default function Home() {
   }
 
   function reset() {
+    clearActiveRead();
     setPhase("intake");
     // Cleared deliberately: a "who is you" choice belongs to one transcript.
     setYouName(null);
@@ -382,7 +420,7 @@ export default function Home() {
     const text = [
       "Subtext read",
       analysis.headline,
-      leadingReads ? `\nCompeting interpretations:\n${leadingReads}` : "",
+      leadingReads ? `\nOther possible explanations:\n${leadingReads}` : "",
       "\nGenerated on-device from language patterns. This does not determine intent or diagnose a person.",
     ].filter(Boolean).join("\n");
 
@@ -430,7 +468,7 @@ export default function Home() {
             <h1 className="font-display text-2xl text-sbt-ink">Your read</h1>
             <p className="mt-1 text-xs text-sbt-mute">{youSpeaker} and {themSpeaker} · {analysis.transcript.messages.length} messages</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {!unlocked && usage ? (
               <span className="text-xs text-sbt-mute">
                 {left} of {FREE_LIMIT} free reads left this month
@@ -443,17 +481,17 @@ export default function Home() {
             >
               New conversation
             </button>
-            <details className="relative">
-              <summary className="cursor-pointer list-none rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">Save or share</summary>
-              <div className="absolute right-0 z-20 mt-2 flex min-w-44 flex-col gap-1 rounded-sbt border border-sbt-linen bg-sbt-paper p-2 shadow-soft">
-                <button type="button" onClick={shareRead} className="rounded-sbt px-3 py-2 text-left text-sm text-sbt-dusk hover:bg-sbt-linen/50">
-                  {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share read"}
-                </button>
-                <button type="button" onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)} className="rounded-sbt px-3 py-2 text-left text-sm text-sbt-dusk hover:bg-sbt-linen/50">
-                  {saveState === "saved" ? "Saved privately" : "Save privately"}
-                </button>
-              </div>
-            </details>
+            <button
+              type="button"
+              disabled={saveState === "saved"}
+              onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)}
+              className="rounded-sbt border-2 border-sbt-gold/55 bg-sbt-gold/[0.10] px-3 py-2 text-sm font-semibold text-sbt-gold-700 disabled:border-emerald-300 disabled:bg-emerald-50 disabled:text-emerald-800"
+            >
+              {saveState === "saved" ? "Saved to archive ✓" : "Save to archive"}
+            </button>
+            <button type="button" onClick={shareRead} className="rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">
+              {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share"}
+            </button>
           </div>
         </header>
 
@@ -680,6 +718,7 @@ export default function Home() {
             setCustomParticipants([]);
             setFocusName(null);
             setOcrState("idle");
+            setOcrSpeakersConfirmed(true);
             setOcrMessage(null);
             setParseWarning(null);
             setRunError(null);
@@ -823,6 +862,7 @@ export default function Home() {
                   const name = newParticipant.trim();
                   if (name && !availableNames.includes(name)) setCustomParticipants((current) => [...current, name]);
                   setNewParticipant("");
+                  setOcrSpeakersConfirmed(false);
                 }}
                 className="rounded-sbt border border-sbt-gold/40 px-3 py-2 text-xs font-medium text-sbt-gold-700 disabled:opacity-40"
               >
@@ -842,14 +882,20 @@ export default function Home() {
                           aria-label={`Speaker for message ${message.index + 1}`}
                           value={speaker}
                           disabled={removed}
-                          onChange={(event) => setSpeakerAssignments((current) => ({ ...current, [message.id]: event.target.value }))}
+                          onChange={(event) => {
+                            setSpeakerAssignments((current) => ({ ...current, [message.id]: event.target.value }));
+                            setOcrSpeakersConfirmed(false);
+                          }}
                           className="min-h-8 max-w-[12rem] rounded-full border border-current/20 bg-white/70 px-2 text-[10px] font-semibold uppercase tracking-wide"
                         >
                           {availableNames.map((name) => <option key={name} value={name}>{name}</option>)}
                         </select>
                         <button
                           type="button"
-                          onClick={() => setExcludedMessages((current) => ({ ...current, [message.id]: !current[message.id] }))}
+                          onClick={() => {
+                            setExcludedMessages((current) => ({ ...current, [message.id]: !current[message.id] }));
+                            setOcrSpeakersConfirmed(false);
+                          }}
                           className="min-h-8 rounded-full border border-current/20 bg-white/70 px-2 text-[10px] font-semibold uppercase tracking-wide"
                         >
                           {removed ? "Restore" : "Not a message"}
@@ -861,6 +907,23 @@ export default function Home() {
                 );
               })}
             </ul>
+            {ocrState === "done" ? (
+              <div className="mt-3 rounded-sbt border border-sbt-gold/30 bg-white/70 p-3">
+                <p className="text-xs leading-relaxed text-sbt-dusk">
+                  Check each name above. Add a missing person, then use the name menu on any message that is wrong.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOcrSpeakersConfirmed(true);
+                    setParseWarning(null);
+                  }}
+                  className="mt-2 min-h-11 w-full rounded-sbt bg-sbt-ink px-4 py-2.5 text-sm font-semibold text-sbt-paper"
+                >
+                  {ocrSpeakersConfirmed ? "Speakers confirmed ✓" : "Confirm these speakers"}
+                </button>
+              </div>
+            ) : null}
           </details>
         ) : null}
 
@@ -904,10 +967,10 @@ export default function Home() {
           <button
             type="button"
             onClick={run}
-            disabled={!raw.trim()}
+            disabled={!raw.trim() || (ocrState === "done" && !ocrSpeakersConfirmed)}
             className="min-h-12 flex-1 rounded-sbt bg-sbt-gold px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700 disabled:opacity-40 sm:flex-none"
           >
-            Read this conversation
+            {ocrState === "done" && !ocrSpeakersConfirmed ? "Confirm speakers first" : "Read this conversation"}
           </button>
           {usage ? (
             <p className="text-xs text-sbt-mute">

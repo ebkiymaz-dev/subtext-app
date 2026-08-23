@@ -4,6 +4,7 @@ export type ScreenshotRead = {
   transcript: string;
   messageCount: number;
   participantCount: number;
+  participants: string[];
 };
 
 export const OCR_LANGUAGE_OPTIONS = [
@@ -38,6 +39,7 @@ export function trainedDataFor(language: OcrLanguage): string {
 
 type Box = { x0: number; y0: number; x1: number; y1: number };
 type Rgb = { r: number; g: number; b: number };
+type OcrSide = "left" | "right";
 type OcrParagraph = {
   rawLines: string[];
   text: string;
@@ -119,6 +121,25 @@ function embeddedSender(lines: string[]): { sender?: string; text: string } {
   return { text: lines.join(" ").trim() };
 }
 
+export function chooseScreenshotSender(
+  side: OcrSide,
+  explicitSender: string | undefined,
+  bubbleKey: string,
+  lastNamedSender: Map<OcrSide, string>,
+  colourSpeakers: Map<string, string>
+): string {
+  if (explicitSender) {
+    lastNamedSender.set(side, explicitSender);
+    return explicitSender;
+  }
+  if (side === "right") return "You";
+  const continuingSender = lastNamedSender.get(side);
+  if (continuingSender) return continuingSender;
+  const key = `${side}-${bubbleKey}`;
+  if (!colourSpeakers.has(key)) colourSpeakers.set(key, `Unclear speaker ${colourSpeakers.size + 1}`);
+  return colourSpeakers.get(key)!;
+}
+
 /** Local OCR with bubble, name-label, colour, and alignment cues. */
 export async function readChatScreenshot(
   file: File,
@@ -180,6 +201,7 @@ export async function readChatScreenshot(
       .sort((a, b) => a.bbox.y0 - b.bbox.y0);
 
     const colourSpeakers = new Map<string, string>();
+    const lastNamedSender = new Map<"left" | "right", string>();
     const participantNames = new Set<string>();
     const messages: string[] = [];
     for (let index = 0; index < paragraphs.length; index += 1) {
@@ -196,19 +218,17 @@ export async function readChatScreenshot(
           sender = previous.text;
         }
       }
-      if (!sender) {
-        if (paragraph.side === "right") sender = "You";
-        else {
-          const key = `${paragraph.side}-${paragraph.bubbleKey}`;
-          if (!colourSpeakers.has(key)) colourSpeakers.set(key, `Person ${colourSpeakers.size + 1}`);
-          sender = colourSpeakers.get(key)!;
-        }
-      }
+      sender = chooseScreenshotSender(paragraph.side, sender, paragraph.bubbleKey, lastNamedSender, colourSpeakers);
       participantNames.add(sender);
       messages.push(`${sender}: ${embedded.text}`);
     }
     if (!messages.length) throw new Error("No chat bubbles were found after removing headers, timestamps, and OCR debris.");
-    return { transcript: messages.join("\n"), messageCount: messages.length, participantCount: participantNames.size };
+    return {
+      transcript: messages.join("\n"),
+      messageCount: messages.length,
+      participantCount: participantNames.size,
+      participants: [...participantNames],
+    };
   } finally {
     await worker.terminate();
   }

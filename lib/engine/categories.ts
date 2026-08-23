@@ -430,7 +430,7 @@ const ALL_BUILDERS: Builder[] = [
         percent: pct(met),
         read,
         tier: "on-device",
-        method: "bid detection, then turn-toward / minimal / turn-away classification of each reply",
+        method: "connection-attempt detection, then whether each reply continued, briefly acknowledged, or moved away",
         tone: met >= 0.6 ? "warm" : met <= 0.35 ? "caution" : "neutral",
         evidence,
         caveat:
@@ -493,7 +493,7 @@ const ALL_BUILDERS: Builder[] = [
       let read: string;
       if (s.softClose) {
         read =
-          "A bid was answered politely and the conversation was ended in the same message. Politeness and engagement are different things, and this reply has the first without the second.";
+          "An attempt to connect was answered politely, but the conversation ended in the same message. Politeness and engagement are different things, and this reply has the first without the second.";
       } else if (value >= 0.6) {
         read = `${c.otherName} responds to what ${c.youName} opens and adds something back, so both sides carry the conversation.`;
       } else if (value >= 0.35) {

@@ -118,7 +118,7 @@ export function buildHeadline(
     return "Warm words, no dates attached. Every reference to the future here is unbounded, and unbounded is how a fade sounds while it is happening.";
   }
   if (get(cats, "engagement") >= 60 && get(cats, "reciprocity") >= 55) {
-    return "Both of you are carrying this. Bids get met and extended, questions travel in both directions, and the register is matched — this reads as a conversation, not a transaction.";
+    return "Both of you are carrying this. Attempts to connect are answered and continued, questions travel in both directions, and the tone is matched — this reads as a conversation, not a transaction.";
   }
   if (get(cats, "evasion") >= 45) {
     return "Specific questions are meeting non-specific answers. That pattern is consistent with a topic being stepped around — which is not the same as you being stepped around.";

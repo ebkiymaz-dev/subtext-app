@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { hasActiveRead } from "@/lib/active-read";
 import {
   createLocalProfile,
   deleteArchivedConversation,
@@ -16,49 +18,67 @@ export default function ArchivePage() {
   const [items, setItems] = useState<ArchivedConversation[]>([]);
   const [name, setName] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [activeReadOpen, setActiveReadOpen] = useState(false);
 
   useEffect(() => {
     setProfile(readLocalProfile());
     setItems(readArchive());
+    setActiveReadOpen(hasActiveRead());
   }, []);
+
+  const activeReadBanner = activeReadOpen ? (
+    <aside className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sbt border border-sbt-gold/35 bg-sbt-gold/[0.07] p-4">
+      <div>
+        <p className="text-sm font-semibold text-sbt-ink">Your current analysis is still open</p>
+        <p className="mt-0.5 text-xs text-sbt-mute">Return to it without losing the result, then use Save to archive.</p>
+      </div>
+      <Link href="/" className="rounded-sbt bg-sbt-ink px-4 py-2.5 text-sm font-semibold text-sbt-paper">
+        Return to current read
+      </Link>
+    </aside>
+  ) : null;
 
   if (!profile) {
     return (
-      <section className="mx-auto max-w-xl rounded-sbt border border-sbt-gold/30 bg-white/75 p-5 shadow-soft sm:p-8">
-        <p className="text-[10px] uppercase tracking-widest text-sbt-gold-700">optional local profile</p>
-        <h1 className="mt-2 font-display text-3xl text-sbt-ink">Keep reads on this device</h1>
-        <p className="mt-3 text-sm leading-7 text-sbt-dusk">
-          Create a private profile only if you want an archive. There is no login and nothing syncs
-          to Subtext—your profile and saved conversations stay in this app&apos;s local storage.
-        </p>
-        <label className="mt-5 block text-xs font-medium uppercase tracking-wider text-sbt-mute" htmlFor="profile-name">
-          Your profile name
-        </label>
-        <input
-          id="profile-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="For example: Efe"
-          className="mt-2 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30"
-        />
-        <button
-          type="button"
-          disabled={!name.trim()}
-          onClick={() => {
-            const next = createLocalProfile(name);
-            setProfile(next);
-            setName("");
-          }}
-          className="mt-4 w-full rounded-sbt bg-sbt-gold px-4 py-3 text-sm font-medium text-white disabled:opacity-40"
-        >
-          Create private profile
-        </button>
-      </section>
+      <div className="mx-auto max-w-xl">
+        {activeReadBanner}
+        <section className="rounded-sbt border border-sbt-gold/30 bg-white/75 p-5 shadow-soft sm:p-8">
+          <p className="text-[10px] uppercase tracking-widest text-sbt-gold-700">optional local profile</p>
+          <h1 className="mt-2 font-display text-3xl text-sbt-ink">Keep reads on this device</h1>
+          <p className="mt-3 text-sm leading-7 text-sbt-dusk">
+            Create a private profile only if you want an archive. There is no login and nothing syncs
+            to Subtext—your profile and saved conversations stay in this app&apos;s local storage.
+          </p>
+          <label className="mt-5 block text-xs font-medium uppercase tracking-wider text-sbt-mute" htmlFor="profile-name">
+            Your profile name
+          </label>
+          <input
+            id="profile-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="For example: Efe"
+            className="mt-2 w-full rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30"
+          />
+          <button
+            type="button"
+            disabled={!name.trim()}
+            onClick={() => {
+              const next = createLocalProfile(name);
+              setProfile(next);
+              setName("");
+            }}
+            className="mt-4 w-full rounded-sbt bg-sbt-gold px-4 py-3 text-sm font-medium text-white disabled:opacity-40"
+          >
+            Create private profile
+          </button>
+        </section>
+      </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      {activeReadBanner}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-widest text-sbt-gold-700">{profile.name}&apos;s private archive</p>
@@ -120,7 +140,7 @@ export default function ArchivePage() {
       ) : (
         <section className="rounded-sbt border border-dashed border-sbt-gold/40 bg-sbt-gold/[0.04] p-8 text-center">
           <h2 className="font-display text-xl text-sbt-ink">Nothing saved yet</h2>
-          <p className="mt-2 text-sm text-sbt-mute">After a read, choose “Save privately” to place it here.</p>
+          <p className="mt-2 text-sm text-sbt-mute">After a read, choose “Save to archive” to place it here.</p>
         </section>
       )}
     </div>
