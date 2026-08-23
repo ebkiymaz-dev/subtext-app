@@ -1,5 +1,5 @@
 import { activeParticipants, focusedTranscript, participantStats } from "../lib/group-chat";
-import { chooseScreenshotSender, looksLikeMessage, looksLikeSenderName, trainedDataFor } from "../lib/screenshot-ocr";
+import { chooseScreenshotSender, groupScreenshotParagraphs, looksLikeMessage, looksLikeSenderName, trainedDataFor } from "../lib/screenshot-ocr";
 import { segment } from "../lib/engine/segment";
 
 const assert = (condition: unknown, message: string) => {
@@ -28,6 +28,16 @@ assert(chooseScreenshotSender("left", "Мария", "grey", lastNamed, colourSpe
 assert(chooseScreenshotSender("left", undefined, "grey", lastNamed, colourSpeakers) === "Мария", "consecutive group bubble did not continue the last named sender");
 lastNamed.clear();
 assert(chooseScreenshotSender("left", undefined, "grey", lastNamed, colourSpeakers).startsWith("Unclear speaker"), "uncertain group sender was presented as a known person");
+
+const fragments = groupScreenshotParagraphs([
+  { rawLines: ["Maria"], text: "Maria", confidence: 94, bbox: { x0: 50, y0: 150, x1: 180, y1: 180 }, side: "left", bubbleKey: "224-224-224", sitsOnBubble: true },
+  { rawLines: ["Should we meet at seven?"], text: "Should we meet at seven?", confidence: 92, bbox: { x0: 50, y0: 188, x1: 520, y1: 225 }, side: "left", bubbleKey: "224-224-224", sitsOnBubble: true },
+  { rawLines: ["Kenji"], text: "Kenji", confidence: 95, bbox: { x0: 50, y0: 300, x1: 160, y1: 330 }, side: "left", bubbleKey: "224-224-224", sitsOnBubble: true },
+  { rawLines: ["I can bring the tickets."], text: "I can bring the tickets.", confidence: 93, bbox: { x0: 50, y0: 338, x1: 500, y1: 375 }, side: "left", bubbleKey: "224-224-224", sitsOnBubble: true },
+], 1080, 1500);
+assert(fragments.length === 2, `name/message fragments produced ${fragments.length} bubbles instead of 2`);
+assert(fragments[0].rawLines.join("|") === "Maria|Should we meet at seven?", "Maria label was not joined to its message");
+assert(fragments[1].rawLines.join("|") === "Kenji|I can bring the tickets.", "Kenji label was not joined to its message");
 
 const group = segment([
   "Me: Are we still meeting?",

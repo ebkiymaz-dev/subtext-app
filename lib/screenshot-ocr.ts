@@ -121,6 +121,64 @@ function embeddedSender(lines: string[]): { sender?: string; text: string } {
   return { text: lines.join(" ").trim() };
 }
 
+function verticalGap(a: OcrParagraph, b: OcrParagraph): number {
+  return b.bbox.y0 - a.bbox.y1;
+}
+
+function horizontallyRelated(a: OcrParagraph, b: OcrParagraph, width: number): boolean {
+  const overlap = Math.max(0, Math.min(a.bbox.x1, b.bbox.x1) - Math.max(a.bbox.x0, b.bbox.x0));
+  const narrowest = Math.max(1, Math.min(a.bbox.x1 - a.bbox.x0, b.bbox.x1 - b.bbox.x0));
+  return overlap / narrowest >= 0.35 || Math.abs(a.bbox.x0 - b.bbox.x0) < width * 0.1;
+}
+
+/** Joins a separately-detected name label and message text back into one chat bubble. */
+export function groupScreenshotParagraphs(
+  paragraphs: OcrParagraph[],
+  width: number,
+  height: number
+): OcrParagraph[] {
+  const grouped: OcrParagraph[] = [];
+  for (const paragraph of paragraphs) {
+    const previous = grouped[grouped.length - 1];
+    const gap = previous ? verticalGap(previous, paragraph) : Number.POSITIVE_INFINITY;
+    const joinsPrevious = Boolean(previous)
+      && previous.side !== "center"
+      && previous.side === paragraph.side
+      && gap >= -height * 0.006
+      && gap <= height * 0.026
+      && horizontallyRelated(previous, paragraph, width)
+      && (previous.bubbleKey === paragraph.bubbleKey || looksLikeSenderName(previous.text));
+
+    if (!joinsPrevious || !previous) {
+      grouped.push({ ...paragraph, rawLines: [...paragraph.rawLines], bbox: { ...paragraph.bbox } });
+      continue;
+    }
+
+    previous.rawLines.push(...paragraph.rawLines);
+    previous.text = previous.rawLines.join(" ").trim();
+    previous.confidence = Math.max(previous.confidence, paragraph.confidence);
+    previous.sitsOnBubble = previous.sitsOnBubble || paragraph.sitsOnBubble;
+    previous.bbox = {
+      x0: Math.min(previous.bbox.x0, paragraph.bbox.x0),
+      y0: Math.min(previous.bbox.y0, paragraph.bbox.y0),
+      x1: Math.max(previous.bbox.x1, paragraph.bbox.x1),
+      y1: Math.max(previous.bbox.y1, paragraph.bbox.y1),
+    };
+  }
+  return grouped;
+}
+
+function overlapsExisting(candidate: OcrParagraph, paragraphs: OcrParagraph[]): boolean {
+  return paragraphs.some((paragraph) => {
+    const overlapWidth = Math.max(0, Math.min(candidate.bbox.x1, paragraph.bbox.x1) - Math.max(candidate.bbox.x0, paragraph.bbox.x0));
+    const overlapHeight = Math.max(0, Math.min(candidate.bbox.y1, paragraph.bbox.y1) - Math.max(candidate.bbox.y0, paragraph.bbox.y0));
+    const overlap = overlapWidth * overlapHeight;
+    const candidateArea = Math.max(1, (candidate.bbox.x1 - candidate.bbox.x0) * (candidate.bbox.y1 - candidate.bbox.y0));
+    const paragraphArea = Math.max(1, (paragraph.bbox.x1 - paragraph.bbox.x0) * (paragraph.bbox.y1 - paragraph.bbox.y0));
+    return overlap / Math.min(candidateArea, paragraphArea) >= 0.55;
+  });
+}
+
 export function chooseScreenshotSender(
   side: OcrSide,
   explicitSender: string | undefined,
@@ -168,8 +226,7 @@ export async function readChatScreenshot(
   });
   try {
     await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: "1" });
-    const result = await worker.recognize(file, {}, { blocks: true, text: true });
-    const paragraphs: OcrParagraph[] = (result.data.blocks ?? [])
+    const extractParagraphs = (blocks: NonNullable<Awaited<ReturnType<typeof worker.recognize>>["data"]["blocks"]>): OcrParagraph[] => blocks
       .flatMap((block) => block.paragraphs)
       .map((paragraph) => {
         const rawLines = paragraph.text.split(/\r\n|\r|\n/)
@@ -199,6 +256,39 @@ export async function readChatScreenshot(
       .filter((paragraph) => paragraph.text.length > 1 && paragraph.confidence >= 28)
       .filter((paragraph) => paragraph.bbox.x1 - paragraph.bbox.x0 < width * 0.86)
       .sort((a, b) => a.bbox.y0 - b.bbox.y0);
+
+    const result = await worker.recognize(canvas, {}, { blocks: true, text: true });
+    let paragraphs = extractParagraphs(result.data.blocks ?? []);
+    const sideCounts = {
+      left: paragraphs.filter((paragraph) => paragraph.side === "left").length,
+      right: paragraphs.filter((paragraph) => paragraph.side === "right").length,
+    };
+
+    // White-on-colour chat bubbles can disappear in a normal OCR pass. If one
+    // side is sparse, a local inverted pass recovers it; screenshot pixels never
+    // leave the device. Spatial overlap removes duplicates from the two passes.
+    if (sideCounts.left < 2 || sideCounts.right < 2) {
+      const invertedCanvas = document.createElement("canvas");
+      invertedCanvas.width = width;
+      invertedCanvas.height = height;
+      const invertedContext = invertedCanvas.getContext("2d");
+      if (invertedContext) {
+        const image = context.getImageData(0, 0, width, height);
+        for (let pixel = 0; pixel < image.data.length; pixel += 4) {
+          image.data[pixel] = 255 - image.data[pixel];
+          image.data[pixel + 1] = 255 - image.data[pixel + 1];
+          image.data[pixel + 2] = 255 - image.data[pixel + 2];
+        }
+        invertedContext.putImageData(image, 0, 0);
+        const invertedResult = await worker.recognize(invertedCanvas, {}, { blocks: true, text: true });
+        for (const candidate of extractParagraphs(invertedResult.data.blocks ?? [])) {
+          if (!overlapsExisting(candidate, paragraphs)) paragraphs.push(candidate);
+        }
+        paragraphs.sort((a, b) => a.bbox.y0 - b.bbox.y0);
+      }
+    }
+
+    paragraphs = groupScreenshotParagraphs(paragraphs, width, height);
 
     const colourSpeakers = new Map<string, string>();
     const lastNamedSender = new Map<"left" | "right", string>();
