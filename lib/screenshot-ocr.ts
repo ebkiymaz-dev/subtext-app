@@ -226,13 +226,18 @@ export async function readChatScreenshot(
   });
   try {
     await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: "1" });
+    // Tesseract can combine several visually separate chat bubbles into one
+    // paragraph, especially when they share the same colour and alignment. Use
+    // its line boxes as the spatial source of truth, then rebuild a bubble from
+    // adjacent lines below. This preserves group-chat sender labels instead of
+    // letting one large OCR paragraph swallow the messages beneath it.
     const extractParagraphs = (blocks: NonNullable<Awaited<ReturnType<typeof worker.recognize>>["data"]["blocks"]>): OcrParagraph[] => blocks
-      .flatMap((block) => block.paragraphs)
-      .map((paragraph) => {
-        const rawLines = paragraph.text.split(/\r\n|\r|\n/)
+      .flatMap((block) => block.paragraphs.flatMap((paragraph) => paragraph.lines))
+      .map((line) => {
+        const rawLines = line.text.split(/\r\n|\r|\n/)
           .map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
         const text = rawLines.join(" ").trim();
-        const bbox = paragraph.bbox;
+        const bbox = line.bbox;
         const left = bbox.x0;
         const right = width - bbox.x1;
         const side: OcrParagraph["side"] = Math.abs(left - right) < width * 0.055
@@ -248,7 +253,7 @@ export async function readChatScreenshot(
           x0: outsideX - 5, x1: outsideX + 5, y0: yMid - 7, y1: yMid + 7,
         });
         return {
-          rawLines, text, confidence: paragraph.confidence, bbox, side,
+          rawLines, text, confidence: line.confidence, bbox, side,
           bubbleKey: quantizedColour(bubbleColour),
           sitsOnBubble: side !== "center" && colourDistance(bubbleColour, outside) >= 11,
         };
