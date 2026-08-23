@@ -413,9 +413,9 @@ const ALL_BUILDERS: Builder[] = [
 
       let read: string;
       if (focus.length === 1) {
-        read = `${whose} one bid for connection — ${BID_LABEL[first.kind]}. It was ${first.response ? first.note : "left without a reply"}.`;
+        read = `${whose} one attempt to connect — ${BID_LABEL[first.kind]}. It was ${first.response ? first.note : "left without a reply"}.`;
       } else {
-        read = `${whose} ${focus.length} bids for connection; ${toward} ${toward === 1 ? "was" : "were"} met and extended. The first was ${BID_LABEL[first.kind]} — ${first.note}.`;
+        read = `${whose} ${focus.length} attempts to connect; ${toward} received a reply that continued the conversation. The first was ${BID_LABEL[first.kind]} — ${first.note}.`;
       }
 
       const evidence: Evidence[] = focus.slice(0, 4).map((b) => ({
@@ -426,7 +426,7 @@ const ALL_BUILDERS: Builder[] = [
 
       return {
         id: "bid_response",
-        label: "Connection attempts answered",
+        label: "Attempts to connect answered",
         percent: pct(met),
         read,
         tier: "on-device",

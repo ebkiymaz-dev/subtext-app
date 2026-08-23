@@ -19,9 +19,12 @@
 
 html,
 body {
+  width: 100%;
+  max-width: 100vw;
   background: var(--sbt-paper);
   color: var(--sbt-ink);
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -33,10 +36,6 @@ summary {
 }
 
 @media (max-width: 639px) {
-  body {
-    overflow-x: hidden;
-  }
-
   input,
   textarea,
   select {

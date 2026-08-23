@@ -147,6 +147,15 @@ export default function Home() {
       .catch(() => setProviderLabel(null));
   }, []);
 
+  useEffect(() => {
+    if (phase !== "result" || !analysis?.coach.length) return;
+    // Let the user reach the core value—the short read—before offering the
+    // optional paid next step. The prompt remains visible and distinctive,
+    // but no longer covers the result the moment it appears.
+    const timer = window.setTimeout(() => setShowAnswerCoach(true), 5500);
+    return () => window.clearTimeout(timer);
+  }, [phase, analysis]);
+
   // Live preview of the parse, so "which one is you?" is answerable up front.
   const preview = useMemo(() => (raw.trim() ? segment(raw) : null), [raw]);
   const participantNames = useMemo(
@@ -310,7 +319,6 @@ export default function Home() {
         setShowAll(false);
         setDeepState("idle");
         setDeepResult(null);
-        setShowAnswerCoach(true);
         setPhase("result");
       } catch (error) {
         // Do not log the pasted conversation. A safe diagnostic is enough.

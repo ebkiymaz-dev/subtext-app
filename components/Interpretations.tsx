@@ -11,11 +11,10 @@ export default function Interpretations({ items }: { items: Interpretation[] }) 
   return (
     <section className="rounded-sbt border border-sbt-linen bg-white/70 p-5">
       <header className="mb-4">
-        <h2 className="font-display text-lg text-sbt-ink">Competing readings</h2>
+        <h2 className="font-display text-lg text-sbt-ink">Other possible explanations</h2>
         <p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">
-          These weights are how the evidence distributes across possible readings — not how likely
-          each one is to be true. They add to 100 because they are alternatives, and none is allowed
-          to dominate.
+          These percentages compare different explanations for the same messages. They are not
+          certainty scores, so read the evidence under each one before drawing a conclusion.
         </p>
       </header>
 
