@@ -381,8 +381,18 @@ export default function Home() {
   function reset() {
     clearActiveRead();
     setPhase("intake");
-    // Cleared deliberately: a "who is you" choice belongs to one transcript.
+    setRaw("");
     setYouName(null);
+    setFocusName(null);
+    setOtherName("");
+    setSpeakerAssignments({});
+    setExcludedMessages({});
+    setCustomParticipants([]);
+    setOcrState("idle");
+    setOcrProgress(0);
+    setOcrMessage(null);
+    setOcrSpeakersConfirmed(true);
+    if (screenshotInput.current) screenshotInput.current.value = "";
     setAnalysis(null);
     setActive(null);
     setDeepState("idle");
