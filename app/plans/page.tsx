@@ -33,8 +33,8 @@ export default function PlansPage() {
         <p className="text-[10px] font-semibold uppercase tracking-widest text-sbt-gold-700">✦ Optional paid extra</p>
         <h1 className="mt-2 font-display text-3xl text-sbt-ink">Answer Coach</h1>
         <p className="mt-3 text-[15px] leading-relaxed text-sbt-dusk">
-          The conversation reader, speaker labels, scores, explanations, and private archive stay free.
-          Answer Coach adds clear reply options grounded in the conversation you just analysed.
+          The conversation reader, speaker labels, evidence strengths, explanations, and private archive stay free.
+          Answer Coach adds individualized analysis and editable replies grounded in the conversation and your goal.
         </p>
       </header>
 
@@ -47,7 +47,9 @@ export default function PlansPage() {
           <p className="font-display text-2xl text-sbt-ink">{price}</p>
         </div>
         <ul className="mt-5 space-y-2 text-sm leading-relaxed text-sbt-dusk">
-          <li>✓ Reply options that improve your own clarity</li>
+          <li>✓ Actual conversation analyzed against your chosen goal</li>
+          <li>✓ Warm, direct, and boundary replies with tradeoffs</li>
+          <li>✓ Competing explanations and your side of the pattern</li>
           <li>✓ No instructions for manipulating or controlling another person</li>
           <li>✓ Restores automatically with the purchasing Google Play account</li>
           <li>✓ Core Subtext analysis remains free if you cancel</li>
@@ -88,6 +90,9 @@ export default function PlansPage() {
         <p className="mt-2">
           Answer Coach is communication guidance, not professional, medical, legal, or emergency advice.
           It can be wrong. Review every suggestion before sending it.
+        </p>
+        <p className="mt-2">
+          Unlike the free reader, Coach sends the conversation to the configured AI provider for one requested analysis. Subtext does not intentionally retain the conversation.
         </p>
       </section>
 

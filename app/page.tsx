@@ -11,10 +11,6 @@ import {
 import SubtextLogo from "@/components/SubtextLogo";
 import { SAMPLES } from "@/lib/samples";
 import { readUsage, recordAnalysis, type Usage } from "@/lib/usage";
-import { requestDeepRead } from "@/lib/deepReadClient";
-import type { DeepReadResult } from "@/lib/engine/deepRead";
-import { withBase } from "@/lib/basePath";
-import DeepReadCard from "@/components/DeepReadCard";
 import DistressCard from "@/components/DistressCard";
 import SegmentedTranscript from "@/components/SegmentedTranscript";
 import Panel from "@/components/Panel";
@@ -22,11 +18,17 @@ import Interpretations from "@/components/Interpretations";
 import CoachCard from "@/components/CoachCard";
 import {
   PLAY_BILLING_EVENT,
+  readPlayEntitlementProof,
   readPlayBillingState,
   requestPlayPurchase,
   stateFromBillingEvent,
   type PlayBillingState,
 } from "@/lib/playBilling";
+import { requestPersonalizedCoach } from "@/lib/answerCoachClient";
+import {
+  COACH_GOALS, COACH_TONES,
+  type CoachGoalId, type CoachToneId, type PersonalizedCoachResult,
+} from "@/lib/engine/answerCoach";
 import AnswerCoachPrompt from "@/components/AnswerCoachPrompt";
 import ReflectionProgress from "@/components/ReflectionProgress";
 import {
@@ -119,14 +121,14 @@ export default function Home() {
   const [profileName, setProfileName] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
 
-  // The AI-assisted tier. Deliberately NOT run automatically: the on-device
-  // analysis is complete, and the deep read is the one action in this app
-  // that sends text off the device, so it takes a deliberate press.
-  const [deepState, setDeepState] = useState<"idle" | "running" | "done">("idle");
-  const [deepResult, setDeepResult] = useState<DeepReadResult | null>(null);
-  const [providerLabel, setProviderLabel] = useState<string | null>(null);
+  const [coachGoal, setCoachGoal] = useState<CoachGoalId>("understand");
+  const [coachTone, setCoachTone] = useState<CoachToneId>("direct");
+  const [coachStakes, setCoachStakes] = useState("");
+  const [coachState, setCoachState] = useState<"idle" | "running" | "done">("idle");
+  const [coachResult, setCoachResult] = useState<PersonalizedCoachResult | null>(null);
   const [showAnswerCoach, setShowAnswerCoach] = useState(false);
   const [reflection, setReflection] = useState<ReflectionSnapshot | null>(null);
+  const [resolutionMarked, setResolutionMarked] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "shared" | "copied" | "failed">("idle");
 
   useEffect(() => {
@@ -172,17 +174,6 @@ export default function Home() {
     };
     window.addEventListener(PLAY_BILLING_EVENT, onBilling);
     return () => window.removeEventListener(PLAY_BILLING_EVENT, onBilling);
-  }, []);
-
-  useEffect(() => {
-    // Configuration state only — no message text is ever sent to this endpoint.
-    fetch(withBase("/api/capabilities"))
-      .then((r) => r.json())
-      .then((d) => {
-        const llm = d?.capabilities?.llm;
-        if (llm?.configured) setProviderLabel(llm.label as string);
-      })
-      .catch(() => setProviderLabel(null));
   }, []);
 
   useEffect(() => {
@@ -360,16 +351,10 @@ export default function Home() {
         });
         recordProductEvent("analysis_completed");
         setUsage(recordAnalysis());
-        // Progress is optional and must never be able to block the result.
-        try {
-          setReflection(recordReflection());
-        } catch {
-          setReflection(null);
-        }
         setActive(null);
         setShowAll(false);
-        setDeepState("idle");
-        setDeepResult(null);
+        setCoachState("idle");
+        setCoachResult(null);
         setPhase("result");
       } catch (error) {
         // Do not log the pasted conversation. A safe diagnostic is enough.
@@ -384,12 +369,21 @@ export default function Home() {
     }, 900);
   }
 
-  async function runDeepRead() {
+  async function runAnswerCoach() {
     if (!analysis) return;
-    setDeepState("running");
-    const res = await requestDeepRead(preparedTranscript(), context, preparedYouName(), familiarity);
-    setDeepResult(res);
-    setDeepState("done");
+    const entitlement = readPlayEntitlementProof();
+    if (!entitlement) {
+      setCoachResult({ ok: false, reason: "Restore the active Google Play subscription, then try again." });
+      setCoachState("done");
+      return;
+    }
+    setCoachState("running");
+    const result = await requestPersonalizedCoach({
+      text: preparedTranscript(), context, familiarity, youName: preparedYouName(),
+      goal: coachGoal, tone: coachTone, stakes: coachStakes, entitlement,
+    });
+    setCoachResult(result);
+    setCoachState("done");
   }
 
   function reset() {
@@ -409,13 +403,14 @@ export default function Home() {
     if (screenshotInput.current) screenshotInput.current.value = "";
     setAnalysis(null);
     setActive(null);
-    setDeepState("idle");
-    setDeepResult(null);
+    setCoachState("idle");
+    setCoachResult(null);
     setShowAnswerCoach(false);
     setRunError(null);
     setShareState("idle");
     setSaveState("idle");
     setShowSaveProfile(false);
+    setResolutionMarked(false);
   }
 
   function saveCurrentRead(profile: LocalProfile) {
@@ -439,7 +434,7 @@ export default function Home() {
     if (!analysis) return;
     const leadingReads = analysis.interpretations
       .slice(0, 2)
-      .map((item) => `${item.weight}% — ${item.title}`)
+      .map((item) => `• ${item.title}`)
       .join("\n");
     const text = [
       "Subtext read",
@@ -510,6 +505,9 @@ export default function Home() {
             <button type="button" onClick={shareRead} className="rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">
               {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share"}
             </button>
+            <button type="button" disabled={resolutionMarked} onClick={() => { setReflection(recordReflection()); setResolutionMarked(true); }} className="rounded-sbt border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 disabled:opacity-60">
+              {resolutionMarked ? "Marked complete ✓" : "Done with this read"}
+            </button>
           </div>
         </header>
 
@@ -543,7 +541,7 @@ export default function Home() {
               ))}
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-sbt-mute">
-              Participation share is descriptive, not a judgment. Relational scores below use only {youSpeaker} and {themSpeaker}; messages from other participants are not attributed to either person.
+              Participation share is descriptive, not a judgment. Relational evidence below uses only {youSpeaker} and {themSpeaker}; messages from other participants are not attributed to either person.
             </p>
           </section>
         ) : null}
@@ -591,13 +589,25 @@ export default function Home() {
             <summary className="cursor-pointer">Why relationship context changes this read</summary>
             <p className="mt-2 leading-relaxed">
               Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
-              known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span>. Expected formality{" "}
-              {Math.round(analysis.profile.expectedFormality * 100)}%; observed {Math.round(analysis.signals.themFormality * 100)}%.
+              known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span>. The exchange is compared with the level of formality normally expected in that setting—not with a universal relationship standard.
             </p>
           </details>
         </section>
 
-        <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+        <Interpretations items={analysis.interpretations} />
+
+        <CoachCard
+          locked={!coachUnlocked}
+          state={coachState}
+          result={coachResult}
+          goal={coachGoal}
+          onUnlock={billing.android ? () => requestPlayPurchase() : undefined}
+          onRun={runAnswerCoach}
+        />
+
+        <details className="rounded-sbt border border-sbt-linen bg-white/50 p-3 sm:p-4">
+          <summary className="cursor-pointer font-display text-[15px] text-sbt-gold-700">See conversation evidence and full analysis</summary>
+        <div className="mt-4 grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="order-2 lg:order-1">
             <div className="rounded-sbt border border-sbt-linen bg-sbt-paper p-4 sm:p-5">
               <div className="mb-3 flex items-center justify-between">
@@ -624,7 +634,7 @@ export default function Home() {
               />
               {!unlocked ? (
                 <p className="mt-4 rounded-sbt bg-sbt-linen/60 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
-                  The lines behind each score are marked, but the reasoning is blurred on Free.{" "}
+                  The lines behind each pattern are marked, but the reasoning is blurred on Free.{" "}
                   <Link href="/plans" className="text-sbt-gold-700 underline underline-offset-2">
                     Premium
                   </Link>{" "}
@@ -645,8 +655,6 @@ export default function Home() {
               onToggleAll={() => setShowAll((s) => !s)}
             />
 
-            <Interpretations items={analysis.interpretations} />
-
             {analysis.whatWasntSaid.length ? (
               <section className="rounded-sbt border border-sbt-linen bg-white/70 p-5">
                 <h2 className="font-display text-lg text-sbt-ink">What wasn&rsquo;t said</h2>
@@ -659,22 +667,6 @@ export default function Home() {
                   ))}
                 </ul>
               </section>
-            ) : null}
-
-            <CoachCard
-              suggestions={analysis.coach}
-              locked={!coachUnlocked}
-              onUnlock={billing.android ? () => requestPlayPurchase() : undefined}
-            />
-
-            {providerLabel ? (
-              <DeepReadCard
-                state={deepState}
-                result={deepResult}
-                locked={!unlocked}
-                providerLabel={providerLabel}
-                onRun={runDeepRead}
-              />
             ) : null}
 
             <details className="rounded-sbt border border-sbt-linen bg-sbt-linen/30 p-4">
@@ -690,15 +682,15 @@ export default function Home() {
 
             {reflection && reflection.totalReads > 0 ? (
               <details className="rounded-sbt border border-sbt-linen bg-sbt-linen/30 p-4">
-                <summary className="cursor-pointer text-xs text-sbt-mute">Your reflection progress</summary>
+                <summary className="cursor-pointer text-xs text-sbt-mute">Healthy communication progress</summary>
                 <div className="mt-3"><ReflectionProgress progress={reflection} compact /></div>
               </details>
             ) : null}
           </div>
         </div>
+        </details>
         {showAnswerCoach ? (
           <AnswerCoachPrompt
-            suggestions={analysis.coach}
             onClose={() => setShowAnswerCoach(false)}
             onOpen={() => {
               setShowAnswerCoach(false);
@@ -1000,6 +992,30 @@ export default function Home() {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="mt-5 border-t border-sbt-gold/15 pt-4">
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">What do you want from Answer Coach?</p>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+              {(Object.keys(COACH_GOALS) as CoachGoalId[]).map((id) => (
+                <button key={id} type="button" onClick={() => setCoachGoal(id)} aria-pressed={coachGoal === id} className={`rounded-sbt border px-2.5 py-2 text-[12px] leading-tight transition-colors ${coachGoal === id ? "border-sbt-gold bg-sbt-gold/15 font-medium text-sbt-ink" : "border-sbt-linen bg-white/50 text-sbt-dusk"}`}>
+                  {COACH_GOALS[id].label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Preferred reply tone</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(Object.keys(COACH_TONES) as CoachToneId[]).map((id) => (
+                <button key={id} type="button" onClick={() => setCoachTone(id)} aria-pressed={coachTone === id} className={`rounded-full border px-3 py-1.5 text-sm ${coachTone === id ? "border-sbt-ink bg-sbt-ink text-sbt-paper" : "border-sbt-linen bg-white/50 text-sbt-dusk"}`}>
+                  {id[0].toUpperCase() + id.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4">
+            <label htmlFor="coach-stakes" className="text-[11px] uppercase tracking-wider text-sbt-mute">Anything Coach must protect? <span className="normal-case tracking-normal">optional</span></label>
+            <input id="coach-stakes" value={coachStakes} maxLength={500} onChange={(event) => setCoachStakes(event.target.value)} placeholder="Example: I need to keep this professional, or I do not want further contact." className="mt-2 min-h-11 w-full rounded-sbt border border-sbt-linen bg-white px-3 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30" />
           </div>
         </details>
       </section>

@@ -103,7 +103,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             you what someone meant. It shows you which markers are present and where.
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-widest text-sbt-mute/70">
-            <p>private by default · archive and deep read are always optional</p>
+            <p>private by default · archive and Answer Coach are always optional</p>
             <Link href="/privacy" className="underline underline-offset-2 hover:text-sbt-dusk">
               Privacy policy
             </Link>

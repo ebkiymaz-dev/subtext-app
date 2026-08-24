@@ -1,21 +1,14 @@
 "use client";
 
-import type { CoachSuggestion } from "@/lib/engine/types";
-
 /** A deliberately optional next-step prompt. It never tells the user what the
  * other person thinks; it offers a way to make the user's own reply clearer. */
 export default function AnswerCoachPrompt({
-  suggestions,
   onClose,
   onOpen,
 }: {
-  suggestions: CoachSuggestion[];
   onClose: () => void;
   onOpen: () => void;
 }) {
-  const first = suggestions[0];
-  if (!first) return null;
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-sbt-ink/25 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="answer-coach-title">
       <section className="relative w-full max-w-md overflow-hidden rounded-sbt border-2 border-sbt-gold/60 bg-gradient-to-br from-sbt-paper via-white to-sbt-gold/15 p-5 shadow-soft">
@@ -30,7 +23,7 @@ export default function AnswerCoachPrompt({
           <button type="button" onClick={onClose} className="text-sm text-sbt-mute hover:text-sbt-ink" aria-label="Close answer coach">Not now</button>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-sbt-dusk">
-          Answer Coach has clearer reply options ready for this conversation, including a lower-pressure alternative.
+          Answer Coach can analyze this specific conversation against your goal and prepare warm, direct, and boundary-focused replies.
         </p>
         <p className="mt-2 rounded-sbt bg-white/65 p-3 text-[13px] leading-relaxed text-sbt-dusk">
           The coach helps you state what you need clearly. It does not guess feelings or give tactics for controlling someone else.

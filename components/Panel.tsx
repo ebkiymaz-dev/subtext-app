@@ -3,11 +3,7 @@
 import type { Analysis, CategoryId } from "@/lib/engine/types";
 import { CONFIDENCE_CAPTION } from "@/lib/legitimacy";
 
-const TONE_FILL: Record<string, string> = {
-  neutral: "bg-sbt-dusk",
-  warm: "bg-sbt-teal",
-  caution: "bg-sbt-amber",
-};
+const strength = (percent: number) => percent >= 65 ? "Strong evidence" : percent >= 35 ? "Moderate evidence" : "Weak evidence";
 
 /**
  * THE HERO — the category panel. Calm sequential fills, never red-by-default:
@@ -61,20 +57,9 @@ export default function Panel({
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-display text-[15px] text-sbt-ink">{c.label}</span>
-                  <span
-                    className={`font-display text-base tabular-nums ${
-                      active ? "text-sbt-gold-700" : "text-sbt-dusk"
-                    }`}
-                  >
-                    {c.percent}%
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${active ? "text-sbt-gold-700" : "text-sbt-mute"}`}>
+                    {strength(c.percent)} · {c.evidence.length} message moment{c.evidence.length === 1 ? "" : "s"}
                   </span>
-                </div>
-
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sbt-linen">
-                  <div
-                    className={`animate-fill-bar h-full rounded-full bg-sky-500`}
-                    style={{ width: `${c.percent}%` }}
-                  />
                 </div>
 
                 <p className="mt-1.5 text-[13px] leading-relaxed text-sbt-dusk">{c.read}</p>

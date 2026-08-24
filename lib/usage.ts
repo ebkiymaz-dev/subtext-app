@@ -29,7 +29,7 @@ export const PLANS: Plan[] = [
     name: "Free",
     price: "$0",
     cadence: "3 analyses / month",
-    blurb: "The full percentage panel and the competing interpretations. Evidence lines stay blurred.",
+    blurb: "The full evidence panel and competing interpretations. Evidence lines stay blurred.",
     bullets: [
       "Full category panel",
       "Weighted interpretations",
@@ -43,10 +43,10 @@ export const PLANS: Plan[] = [
     price: "$8.99",
     cadence: "/month",
     annual: "or $3.99/mo billed annually",
-    blurb: "Unlimited reads, the evidence behind every score, and Coach.",
+    blurb: "Unlimited reads, evidence behind every pattern, and Coach.",
     bullets: [
       "Unlimited analyses",
-      "Evidence drawer — the lines behind every score",
+      "Evidence drawer — the lines behind every pattern",
       "Coach: 2–4 option-framed suggestions",
       "Trend over time",
     ],

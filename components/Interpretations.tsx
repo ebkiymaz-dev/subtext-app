@@ -3,13 +3,14 @@
 import type { Interpretation } from "@/lib/engine/types";
 
 /**
- * 3–5 competing reads, weighted, summing to 100 — and the most-charitable
+ * 3–5 competing reads — and the most-charitable
  * one is always present and always visually distinct (teal). The design
  * never lets the darkest read stand alone.
  */
 export default function Interpretations({ items }: { items: Interpretation[] }) {
   const charitable = items.find((item) => item.charitable) ?? items[0];
   const alternatives = items.filter((item) => item !== charitable);
+  const mostSupported = items.reduce<Interpretation | undefined>((best, item) => !best || item.weight > best.weight ? item : best, undefined);
 
   const card = (it: Interpretation) => (
     <article
@@ -19,8 +20,8 @@ export default function Interpretations({ items }: { items: Interpretation[] }) 
     >
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="font-display text-[15px] text-sbt-ink">{it.title}</h3>
-        <span className={`font-display text-base tabular-nums ${it.charitable ? "text-sbt-teal" : "text-sbt-dusk"}`}>
-          {it.weight}%
+        <span className={`text-[10px] font-semibold uppercase tracking-wider ${it.charitable ? "text-sbt-teal" : "text-sbt-mute"}`}>
+          {it === mostSupported ? "Most supported" : "Plausible alternative"}
         </span>
       </div>
       {it.charitable ? (
@@ -44,8 +45,7 @@ export default function Interpretations({ items }: { items: Interpretation[] }) 
       <header className="mb-4">
         <h2 className="font-display text-lg text-sbt-ink">Other possible explanations</h2>
         <p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">
-          These percentages compare different explanations for the same messages. They are not
-          certainty scores, so read the evidence under each one before drawing a conclusion.
+          These are competing possibilities, not verdicts. Open the evidence before drawing a conclusion.
         </p>
       </header>
 

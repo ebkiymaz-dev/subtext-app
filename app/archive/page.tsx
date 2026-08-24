@@ -128,7 +128,7 @@ export default function ArchivePage() {
                   <ul className="mt-3 space-y-2">
                     {item.categories.slice(0, 5).map((category) => (
                       <li key={category.id} className="text-xs leading-relaxed text-sbt-dusk">
-                        <strong>{category.label}: {category.percent}%</strong> — {category.read}
+                        <strong>{category.label}: {category.percent >= 65 ? "strong" : category.percent >= 35 ? "moderate" : "weak"} evidence</strong> — {category.read}
                       </li>
                     ))}
                   </ul>

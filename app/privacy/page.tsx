@@ -7,7 +7,7 @@ export default function PrivacyPage() {
   return (
     <article className="mx-auto max-w-3xl space-y-8 rounded-sbt border border-sbt-linen bg-white/70 p-5 shadow-soft sm:p-8">
       <header>
-        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">Effective 21 August 2026</p>
+        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">Effective 24 August 2026</p>
         <h1 className="mt-2 font-display text-3xl text-sbt-ink">Privacy policy</h1>
         <p className="mt-3 text-sm leading-relaxed text-sbt-dusk">
           This policy explains how Subtext, a Neon Jungle Tools product, handles information when
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       <PolicySection title="The short version">
         <p>
           The standard conversation analysis runs in your browser and does not upload the pasted
-          conversation. The optional AI-assisted Deep Read is different: it sends the conversation
+          conversation. The optional Answer Coach is different: it sends the conversation
           to our server and the model provider named in the app, but only after you deliberately
           press its button. Subtext does not sell conversation data.
         </p>
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         <p>
           Your pasted conversation, speaker choice, relationship context, and the standard analysis
           are processed on your device. Subtext stores a month identifier, read count,
-          reflection days, and aggregate feature-completion counters in browser storage. The
+          explicitly completed-read count, and aggregate feature-completion counters in browser storage. The
           counters contain event names and totals only—never conversation text, names, or URLs.
           If you deliberately create a local profile and press “Save privately,” Subtext stores
           that selected conversation and its read in this device&apos;s browser storage. It is never
@@ -41,21 +41,22 @@ export default function PrivacyPage() {
         <p>
           In the Android app, Answer Coach is an optional Google Play subscription. Google Play
           handles checkout, payment details, renewals, cancellation, and purchase restoration.
-          Subtext receives only the subscription product and purchase state needed to unlock the
-          feature; it does not receive or store your card or bank details. The standard Answer Coach
-          suggestions are calculated on your device from the same local analysis and do not upload
-          the conversation.
+          feature; it does not receive or store your card or bank details. When you request coaching,
+          the Android app supplies a purchase token to the Subtext server. The server verifies it with
+          Google Play before allowing the model request. Subtext does not use that token for advertising
+          or include it in application logs.
         </p>
       </PolicySection>
 
-      <PolicySection title="Optional AI-assisted Deep Read">
+      <PolicySection title="Optional AI-assisted Answer Coach">
         <p>
-          If you choose Deep Read, the conversation text and the context needed to analyse it are
+          If you choose Answer Coach, the conversation text, relationship context, stated goal, preferred
+          tone, and any optional non-negotiable you entered are
           transmitted over HTTPS to the Subtext server and then to the model provider identified in
           the interface. This is used only to return that requested analysis. The Subtext application
           does not intentionally save the conversation or include it in application logs. The model
           provider and hosting providers process the data to deliver the request under their own
-          terms and retention practices. Do not use Deep Read for text you do not want transmitted.
+          terms and retention practices. Do not use Answer Coach for text you do not want transmitted.
         </p>
       </PolicySection>
 
@@ -72,7 +73,7 @@ export default function PrivacyPage() {
       <PolicySection title="Sharing, retention, and deletion">
         <p>
           Information is shared only with service providers needed to host, secure, or deliver a
-          feature you request, including the model provider for Deep Read. Subtext does not sell
+          feature you request, including the model provider for Answer Coach. Subtext does not sell
           personal or sensitive information. Conversation content is not intentionally retained by
           the Subtext application after the response is returned. Standard infrastructure logs are
           kept only as long as reasonably needed for security and operations. Because this release
