@@ -288,7 +288,9 @@ export default function Home() {
     } catch (error) {
       console.error("Subtext screenshot OCR failed", error);
       setOcrState("error");
-      setOcrMessage("I could not separate chat bubbles in that screenshot. Crop out the phone header and try a clearer image.");
+      setOcrMessage(error instanceof Error && error.message === "SCREENSHOT_TOO_LARGE"
+        ? "That screenshot is too large to read safely. Crop it into smaller conversation sections and try again."
+        : "I could not separate chat bubbles in that screenshot. Crop out the phone header and try a clearer image.");
     } finally {
       if (screenshotInput.current) screenshotInput.current.value = "";
     }

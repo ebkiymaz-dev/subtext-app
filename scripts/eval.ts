@@ -21,6 +21,7 @@
 import { analyze } from "../lib/engine/analyze";
 import { EVAL_CASES, type EvalCase } from "../lib/evalSet";
 import { checkLexicon } from "../lib/legitimacy";
+import { answerCoachPrompt } from "../lib/answer-coach-copy";
 import type { Analysis } from "../lib/engine/types";
 
 const DEEP = process.argv.includes("--deep");
@@ -38,6 +39,11 @@ const fail = (id: string, msg: string) => {
   console.log(`  ${r("FAIL")} ${msg}`);
 };
 const pass = (msg: string) => VERBOSE && console.log(`  ${g("ok")}   ${dim(msg)}`);
+
+const coachPrompt = answerCoachPrompt("You could stop initiating for a stretch.");
+if (coachPrompt !== "Suggested next move: You could stop initiating for a stretch.") {
+  fail("answer-coach-copy", `malformed prompt: ${coachPrompt}`);
+}
 
 /** Every string the engine would render, for the banned-lexicon sweep. */
 function renderedStrings(a: Analysis): string[] {

@@ -1,6 +1,7 @@
 "use client";
 
 import type { CoachSuggestion } from "@/lib/engine/types";
+import { answerCoachPrompt } from "@/lib/answer-coach-copy";
 
 /** A deliberately optional next-step prompt. It never tells the user what the
  * other person thinks; it offers a way to make the user's own reply clearer. */
@@ -30,7 +31,7 @@ export default function AnswerCoachPrompt({
           <button type="button" onClick={onClose} className="text-sm text-sbt-mute hover:text-sbt-ink" aria-label="Close answer coach">Not now</button>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-sbt-dusk">
-          A useful next move is to {first.action.toLowerCase()}
+          {answerCoachPrompt(first.action)}
         </p>
         <p className="mt-2 rounded-sbt bg-white/65 p-3 text-[13px] leading-relaxed text-sbt-dusk">
           The coach helps you state what you need clearly. It does not guess feelings or give tactics for controlling someone else.

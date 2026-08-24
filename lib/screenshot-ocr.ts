@@ -50,6 +50,20 @@ type OcrParagraph = {
   sitsOnBubble: boolean;
 };
 
+export const MAX_SCREENSHOT_BYTES = 30 * 1024 * 1024;
+const MAX_OCR_PIXELS = 6_000_000;
+const MAX_OCR_EDGE = 3200;
+
+export function screenshotCanvasSize(sourceWidth: number, sourceHeight: number): { width: number; height: number } {
+  const edgeScale = Math.min(1, MAX_OCR_EDGE / Math.max(sourceWidth, sourceHeight));
+  const pixelScale = Math.min(1, Math.sqrt(MAX_OCR_PIXELS / Math.max(1, sourceWidth * sourceHeight)));
+  const scale = Math.min(edgeScale, pixelScale);
+  return {
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  };
+}
+
 const SYSTEM_LINE = /^(?:read|delivered|sent|today|yesterday|typing…?|message deleted|this message was deleted|\d{1,2}:\d{2}(?:\s*[ap]m)?|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})$/i;
 const TIME_PREFIX = /^\s*\d{1,2}:\d{2}(?:\s*[ap]m)?\b/i;
 const ODD_SYMBOL = /[©®™~=<>\[\]{}|\\]/;
@@ -260,12 +274,14 @@ export async function readChatScreenshot(
   onProgress?: (progress: OcrProgress) => void,
   language: OcrLanguage = "auto"
 ): Promise<ScreenshotRead> {
+  if (file.size > MAX_SCREENSHOT_BYTES) {
+    throw new Error("SCREENSHOT_TOO_LARGE");
+  }
   const [{ createWorker, OEM, PSM }, bitmap] = await Promise.all([
     import("tesseract.js"),
     createImageBitmap(file),
   ]);
-  const width = bitmap.width;
-  const height = bitmap.height;
+  const { width, height } = screenshotCanvasSize(bitmap.width, bitmap.height);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -274,7 +290,7 @@ export async function readChatScreenshot(
     bitmap.close();
     throw new Error("Screenshot canvas is unavailable on this device.");
   }
-  context.drawImage(bitmap, 0, 0);
+  context.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
   const worker = await createWorker(trainedDataFor(language), OEM.LSTM_ONLY, {

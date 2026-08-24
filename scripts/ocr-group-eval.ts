@@ -1,5 +1,5 @@
 import { activeParticipants, focusedTranscript, participantStats } from "../lib/group-chat";
-import { chooseScreenshotSender, detectColouredBubbleBoxes, groupScreenshotParagraphs, looksLikeMessage, looksLikeSenderName, normaliseOcrLine, trainedDataFor } from "../lib/screenshot-ocr";
+import { chooseScreenshotSender, detectColouredBubbleBoxes, groupScreenshotParagraphs, looksLikeMessage, looksLikeSenderName, normaliseOcrLine, screenshotCanvasSize, trainedDataFor } from "../lib/screenshot-ocr";
 import { segment } from "../lib/engine/segment";
 
 const assert = (condition: unknown, message: string) => {
@@ -21,6 +21,10 @@ assert(!looksLikeSenderName("14:45"), "timestamp was accepted as a sender");
 assert(trainedDataFor("auto").includes("chi_sim"), "automatic OCR is missing Chinese");
 assert(trainedDataFor("auto").includes("jpn"), "automatic OCR is missing Japanese");
 assert(trainedDataFor("auto").includes("rus"), "automatic OCR is missing Russian");
+assert(screenshotCanvasSize(1080, 2400).width === 1080, "ordinary phone screenshot was unnecessarily resized");
+const hugeCanvas = screenshotCanvasSize(12000, 9000);
+assert(hugeCanvas.width <= 3200 && hugeCanvas.height <= 3200, "huge screenshot edge was not bounded");
+assert(hugeCanvas.width * hugeCanvas.height <= 6_000_000, "huge screenshot pixel count was not bounded");
 
 const colouredPixels = new Uint8ClampedArray(100 * 100 * 4);
 for (let pixel = 0; pixel < colouredPixels.length; pixel += 4) {
