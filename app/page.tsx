@@ -10,10 +10,7 @@ import {
 } from "@/lib/engine/relationship";
 import SubtextLogo from "@/components/SubtextLogo";
 import { SAMPLES } from "@/lib/samples";
-import {
-  canAnalyse, FREE_LIMIT, isPaid, readUsage, recordAnalysis, remaining, type Usage,
-} from "@/lib/usage";
-import { config } from "@/lib/config";
+import { readUsage, recordAnalysis, type Usage } from "@/lib/usage";
 import { requestDeepRead } from "@/lib/deepReadClient";
 import type { DeepReadResult } from "@/lib/engine/deepRead";
 import { withBase } from "@/lib/basePath";
@@ -23,6 +20,13 @@ import SegmentedTranscript from "@/components/SegmentedTranscript";
 import Panel from "@/components/Panel";
 import Interpretations from "@/components/Interpretations";
 import CoachCard from "@/components/CoachCard";
+import {
+  PLAY_BILLING_EVENT,
+  readPlayBillingState,
+  requestPlayPurchase,
+  stateFromBillingEvent,
+  type PlayBillingState,
+} from "@/lib/playBilling";
 import AnswerCoachPrompt from "@/components/AnswerCoachPrompt";
 import ReflectionProgress from "@/components/ReflectionProgress";
 import {
@@ -89,7 +93,11 @@ export default function Home() {
   const [active, setActive] = useState<CategoryId | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
-  const [blocked, setBlocked] = useState(false);
+  const [billing, setBilling] = useState<PlayBillingState>({
+    android: false,
+    status: "loading",
+    entitled: false,
+  });
   const [parseWarning, setParseWarning] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [speakerAssignments, setSpeakerAssignments] = useState<SpeakerAssignments>({});
@@ -121,6 +129,7 @@ export default function Home() {
 
   useEffect(() => {
     setUsage(readUsage());
+    setBilling(readPlayBillingState());
     setReflection(readReflectionProgress());
     setLocalProfile(readLocalProfile());
 
@@ -154,6 +163,13 @@ export default function Home() {
       setRaw(shared);
       window.history.replaceState({}, "", window.location.pathname);
     }
+
+    const onBilling = (event: Event) => {
+      const next = stateFromBillingEvent(event);
+      if (next) setBilling(next);
+    };
+    window.addEventListener(PLAY_BILLING_EVENT, onBilling);
+    return () => window.removeEventListener(PLAY_BILLING_EVENT, onBilling);
   }, []);
 
   useEffect(() => {
@@ -301,8 +317,7 @@ export default function Home() {
     // Mobile restores and slow devices can receive a tap before the mount
     // effect has populated state. Never turn that valid tap into a silent
     // no-op: read the small local counter synchronously as a fallback.
-    const currentUsage = usage ?? readUsage();
-    if (!usage) setUsage(currentUsage);
+    if (!usage) setUsage(readUsage());
     if (ocrState === "done" && !ocrSpeakersConfirmed) {
       setParseWarning("Confirm the detected speakers before reading this screenshot.");
       return;
@@ -313,11 +328,6 @@ export default function Home() {
     }
     setParseWarning(null);
     setRunError(null);
-    if (config.billingMode !== "mock" && !canAnalyse(currentUsage)) {
-      setBlocked(true);
-      return;
-    }
-    setBlocked(false);
     recordProductEvent("analysis_started");
     setPhase("analyzing");
 
@@ -452,10 +462,9 @@ export default function Home() {
     }
   }
 
-  const paid = usage ? isPaid(usage) : false;
-  const freeRelease = config.billingMode === "mock";
-  const unlocked = freeRelease || paid;
-  const left = usage ? remaining(usage) : FREE_LIMIT;
+  // Standard reads and evidence stay free; only Answer Coach is a paid extra.
+  const unlocked = true;
+  const coachUnlocked = billing.entitled;
 
   if (phase === "distress") return <DistressCard onBack={reset} />;
 
@@ -481,11 +490,6 @@ export default function Home() {
             <p className="mt-1 text-xs text-sbt-mute">{youSpeaker} and {themSpeaker} · {analysis.transcript.messages.length} messages</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {!unlocked && usage ? (
-              <span className="text-xs text-sbt-mute">
-                {left} of {FREE_LIMIT} free reads left this month
-              </span>
-            ) : null}
             <button
               type="button"
               onClick={reset}
@@ -655,7 +659,11 @@ export default function Home() {
               </section>
             ) : null}
 
-            <CoachCard suggestions={analysis.coach} locked={!unlocked} />
+            <CoachCard
+              suggestions={analysis.coach}
+              locked={!coachUnlocked}
+              onUnlock={billing.android ? () => requestPlayPurchase() : undefined}
+            />
 
             {providerLabel ? (
               <DeepReadCard
@@ -951,24 +959,6 @@ export default function Home() {
           </p>
         ) : null}
 
-        {blocked ? (
-          <div className="mt-4 rounded-sbt border border-sbt-gold/40 bg-sbt-gold/[0.07] p-4">
-            <p className="font-display text-[15px] text-sbt-ink">
-              You&rsquo;ve used your {FREE_LIMIT} free reads this month.
-            </p>
-            <p className="mt-1 text-[13px] leading-relaxed text-sbt-dusk">
-              Every analysis costs a real model call, so the free tier is capped rather than
-              throttled. Premium is unlimited and unlocks the evidence behind every score.
-            </p>
-            <Link
-              href="/plans"
-              className="mt-3 inline-block rounded-sbt bg-sbt-gold px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700"
-            >
-              See plans
-            </Link>
-          </div>
-        ) : null}
-
         {runError ? (
           <div role="alert" className="mt-4 rounded-sbt border border-sbt-rose/30 bg-sbt-rose/[0.06] p-4 text-[13px] leading-relaxed text-sbt-dusk">
             {runError}
@@ -984,15 +974,7 @@ export default function Home() {
           >
             {ocrState === "done" && !ocrSpeakersConfirmed ? "Confirm speakers first" : "Read this conversation"}
           </button>
-          {usage ? (
-            <p className="text-xs text-sbt-mute">
-              {freeRelease
-                ? "Free release · unlimited reads"
-                : paid
-                  ? "Premium · unlimited reads"
-                : `${left} of ${FREE_LIMIT} free reads left this month`}
-            </p>
-          ) : null}
+          <p className="text-xs text-sbt-mute">Conversation reader · free</p>
         </div>
 
         <details className="mt-3 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">

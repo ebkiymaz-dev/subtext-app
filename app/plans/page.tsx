@@ -2,152 +2,96 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { checkout, FREE_LIMIT, PLANS, readUsage, type PlanId, type Usage } from "@/lib/usage";
-import { config } from "@/lib/config";
-import { LEGITIMACY_LAWS } from "@/lib/legitimacy";
+import {
+  PLAY_BILLING_EVENT,
+  managePlaySubscription,
+  readPlayBillingState,
+  requestPlayPurchase,
+  restorePlayPurchases,
+  stateFromBillingEvent,
+  type PlayBillingState,
+} from "@/lib/playBilling";
 
 export default function PlansPage() {
-  const [usage, setUsage] = useState<Usage | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [billing, setBilling] = useState<PlayBillingState>({ android: false, status: "loading", entitled: false });
 
-  useEffect(() => setUsage(readUsage()), []);
+  useEffect(() => {
+    setBilling(readPlayBillingState());
+    const onBilling = (event: Event) => {
+      const next = stateFromBillingEvent(event);
+      if (next) setBilling(next);
+    };
+    window.addEventListener(PLAY_BILLING_EVENT, onBilling);
+    return () => window.removeEventListener(PLAY_BILLING_EVENT, onBilling);
+  }, []);
 
-  async function choose(id: PlanId) {
-    setBusy(true);
-    setNotice(null);
-    try {
-      const r = await checkout(id);
-      if (r.url) {
-        window.location.href = r.url;
-        return;
-      }
-      setNotice(r.message);
-      setUsage(readUsage());
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Checkout unavailable.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (config.billingMode === "mock") {
-    return (
-      <section className="mx-auto max-w-2xl rounded-sbt border border-sbt-linen bg-white/70 p-6 shadow-soft sm:p-8">
-        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">first public release</p>
-        <h1 className="mt-2 font-display text-3xl text-sbt-ink">Subtext is free right now.</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-sbt-dusk">
-          Unlimited on-device reads, the evidence behind every score, and Answer Coach are included.
-          There is no checkout and no payment is taken in this release.
-        </p>
-        <Link
-          href="/"
-          className="mt-5 inline-block rounded-sbt bg-sbt-gold px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700"
-        >
-          Read a conversation
-        </Link>
-      </section>
-    );
-  }
+  const price = billing.price ?? "$8.99/month";
 
   return (
-    <div className="space-y-8">
-      <header className="max-w-2xl">
-        <h1 className="font-display text-3xl text-sbt-ink">Plans</h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-sbt-dusk">
-          Free is capped at {FREE_LIMIT} reads a month rather than throttled, because every
-          analysis — including a free one — costs a real model call. The cap is the cost control,
-          honestly stated.
-        </p>
-        <p className="mt-2 text-[10px] uppercase tracking-widest text-sbt-mute">
-          billing mode: {config.billingMode} · no payment is taken in this build
+    <div className="mx-auto max-w-2xl space-y-5">
+      <header>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-sbt-gold-700">✦ Optional paid extra</p>
+        <h1 className="mt-2 font-display text-3xl text-sbt-ink">Answer Coach</h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-sbt-dusk">
+          The conversation reader, speaker labels, scores, explanations, and private archive stay free.
+          Answer Coach adds clear reply options grounded in the conversation you just analysed.
         </p>
       </header>
 
-      {notice ? (
-        <p className="rounded-sbt border border-sbt-teal/40 bg-sbt-teal/10 px-4 py-3 text-sm text-sbt-teal">
-          {notice}
-        </p>
-      ) : null}
+      <section className="overflow-hidden rounded-sbt border-2 border-sbt-gold/55 bg-gradient-to-br from-white via-sbt-paper to-sbt-gold/10 p-6 shadow-soft">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl text-sbt-ink">Answer Coach Premium</h2>
+            <p className="mt-1 text-sm text-sbt-mute">Google Play subscription · cancel anytime</p>
+          </div>
+          <p className="font-display text-2xl text-sbt-ink">{price}</p>
+        </div>
+        <ul className="mt-5 space-y-2 text-sm leading-relaxed text-sbt-dusk">
+          <li>✓ Reply options that improve your own clarity</li>
+          <li>✓ No instructions for manipulating or controlling another person</li>
+          <li>✓ Restores automatically with the purchasing Google Play account</li>
+          <li>✓ Core Subtext analysis remains free if you cancel</li>
+        </ul>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {PLANS.map((p) => {
-          const active = usage?.plan === p.id;
-          return (
-            <div
-              key={p.id}
-              className={`flex flex-col rounded-sbt border p-5 ${
-                active ? "border-sbt-gold bg-sbt-gold/[0.06]" : "border-sbt-linen bg-white/70"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="font-display text-lg text-sbt-ink">{p.name}</h2>
-                {active ? (
-                  <span className="rounded-full bg-sbt-gold px-2 py-0.5 text-[10px] uppercase tracking-wider text-white">
-                    current
-                  </span>
-                ) : null}
-              </div>
+        {billing.entitled ? (
+          <div className="mt-5 space-y-3">
+            <p role="status" className="rounded-sbt bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              Answer Coach is active on this device.
+            </p>
+            <button type="button" onClick={() => managePlaySubscription()} className="w-full rounded-sbt border border-sbt-gold/40 px-4 py-3 text-sm font-medium text-sbt-gold-700">
+              Manage subscription in Google Play
+            </button>
+          </div>
+        ) : billing.android ? (
+          <div className="mt-5 space-y-3">
+            <button type="button" disabled={billing.status === "loading"} onClick={() => requestPlayPurchase()} className="w-full rounded-sbt bg-sbt-gold px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+              {billing.status === "loading" ? "Connecting to Google Play…" : `Start Answer Coach — ${price}`}
+            </button>
+            <button type="button" onClick={() => restorePlayPurchases()} className="w-full px-4 py-2 text-sm text-sbt-gold-700 underline underline-offset-2">
+              Restore an existing purchase
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-sbt border border-sbt-linen bg-white/70 p-4">
+            <p className="text-sm leading-relaxed text-sbt-dusk">
+              Subscriptions are purchased and managed inside the Subtext Android app through Google Play.
+              The web reader remains available here for free.
+            </p>
+          </div>
+        )}
 
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="font-display text-3xl text-sbt-ink">{p.price}</span>
-                <span className="text-xs text-sbt-mute">{p.cadence}</span>
-              </div>
-              {p.annual ? <p className="text-[11px] text-sbt-teal">{p.annual}</p> : null}
-
-              <p className="mt-2 text-[13px] leading-relaxed text-sbt-dusk">{p.blurb}</p>
-
-              <ul className="mt-4 flex-1 space-y-1.5 text-[13px] text-sbt-dusk">
-                {p.bullets.map((b) => (
-                  <li key={b} className="flex gap-2">
-                    <span className="text-sbt-gold">·</span>
-                    {b}
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                type="button"
-                disabled={busy || active}
-                onClick={() => choose(p.id)}
-                className="mt-5 rounded-sbt bg-sbt-gold px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700 disabled:opacity-40"
-              >
-                {active ? "Your plan" : busy ? "Opening…" : `Choose ${p.name}`}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      <section className="rounded-sbt border border-sbt-linen bg-white/70 p-5">
-        <h2 className="font-display text-lg text-sbt-ink">The seven legitimacy laws</h2>
-        <p className="mt-1 text-[12px] text-sbt-mute">
-          Enforced in code on every output, forever — not a launch checklist.
-        </p>
-        <ol className="mt-3 space-y-2">
-          {LEGITIMACY_LAWS.map((law, i) => (
-            <li key={law} className="flex gap-3 text-[13px] leading-relaxed text-sbt-dusk">
-              <span className="font-display text-sbt-gold">{i + 1}</span>
-              <span>{law}</span>
-            </li>
-          ))}
-        </ol>
+        {billing.message ? <p role="status" className="mt-3 text-xs leading-relaxed text-sbt-mute">{billing.message}</p> : null}
       </section>
 
-      <section className="rounded-sbt border border-sbt-linen bg-sbt-linen/40 p-5">
-        <h2 className="text-[10px] uppercase tracking-widest text-sbt-mute">wiring payments</h2>
-        <ol className="mt-2 space-y-1.5 text-[13px] leading-relaxed text-sbt-dusk">
-          <li>1 · Lemon Squeezy store with three variants (Premium monthly, Premium annual, Work).</li>
-          <li>
-            2 · Add <code>/api/checkout</code> and <code>/api/webhooks/lemon</code> (HMAC-verified).
-          </li>
-          <li>3 · The webhook writes the entitlement server-side; the client never grants itself.</li>
-          <li>
-            4 · Set <code>NEXT_PUBLIC_BILLING_MODE=lemonsqueezy</code> — every gate keeps working
-            unchanged.
-          </li>
-        </ol>
+      <section className="rounded-sbt border border-sbt-linen bg-white/70 p-5 text-sm leading-relaxed text-sbt-dusk">
+        <h2 className="font-display text-lg text-sbt-ink">Before you subscribe</h2>
+        <p className="mt-2">
+          Answer Coach is communication guidance, not professional, medical, legal, or emergency advice.
+          It can be wrong. Review every suggestion before sending it.
+        </p>
       </section>
+
+      <Link href="/" className="inline-block text-sm text-sbt-gold-700 underline underline-offset-2">Back to your read</Link>
     </div>
   );
 }

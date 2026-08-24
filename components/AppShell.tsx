@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { BASE_PATH } from "@/lib/basePath";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { config } from "@/lib/config";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -53,16 +52,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Archive
             </Link>
-            {config.billingMode !== "mock" ? (
-              <Link
-                href="/plans"
-                className={`rounded-sbt px-3 py-1.5 transition-colors ${
-                  pathname === "/plans" ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
-                }`}
-              >
-                Plans
-              </Link>
-            ) : null}
+            <Link
+              href="/plans"
+              className={`rounded-sbt px-3 py-1.5 transition-colors ${
+                pathname === "/plans" ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
+              }`}
+            >
+              Coach
+            </Link>
           </nav>
         </div>
       </header>

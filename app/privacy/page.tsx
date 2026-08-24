@@ -27,13 +27,24 @@ export default function PrivacyPage() {
       <PolicySection title="Information handled on your device">
         <p>
           Your pasted conversation, speaker choice, relationship context, and the standard analysis
-          are processed on your device. Subtext stores a month identifier, read count, and local plan
-          state, reflection days, and aggregate feature-completion counters in browser storage. The
+          are processed on your device. Subtext stores a month identifier, read count,
+          reflection days, and aggregate feature-completion counters in browser storage. The
           counters contain event names and totals only—never conversation text, names, or URLs.
           If you deliberately create a local profile and press “Save privately,” Subtext stores
           that selected conversation and its read in this device&apos;s browser storage. It is never
           created automatically and does not sync to a server.
           You can remove this local information by clearing the app or browser storage.
+        </p>
+      </PolicySection>
+
+      <PolicySection title="Answer Coach and Google Play billing">
+        <p>
+          In the Android app, Answer Coach is an optional Google Play subscription. Google Play
+          handles checkout, payment details, renewals, cancellation, and purchase restoration.
+          Subtext receives only the subscription product and purchase state needed to unlock the
+          feature; it does not receive or store your card or bank details. The standard Answer Coach
+          suggestions are calculated on your device from the same local analysis and do not upload
+          the conversation.
         </p>
       </PolicySection>
 

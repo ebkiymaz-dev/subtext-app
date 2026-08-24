@@ -2,7 +2,7 @@
 // mechanic runs with zero keys and zero cost.
 
 export type LlmMode = "mock" | "live";
-export type BillingMode = "mock" | "lemonsqueezy";
+export type BillingMode = "mock" | "play";
 
 function envOr<T extends string>(v: string | undefined, fallback: T): T {
   return (v as T) || fallback;
