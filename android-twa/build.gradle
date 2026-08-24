@@ -18,9 +18,9 @@
 
 // Keep Codex/release builds away from legacy OneDrive-owned Gradle outputs.
 // This avoids Windows ACL collisions without deleting any previous build.
-buildDir = file('build-v5/root')
+buildDir = file('build-v6/root')
 subprojects {
-    buildDir = file("$rootDir/build-v5/$name")
+    buildDir = file("$rootDir/build-v6/$name")
 }
 
 buildscript {

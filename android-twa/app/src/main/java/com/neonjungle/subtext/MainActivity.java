@@ -40,7 +40,7 @@ import java.util.List;
 
 /** Native, standalone Subtext shell. No Chrome Custom Tab or TWA UI. */
 public class MainActivity extends Activity implements PurchasesUpdatedListener {
-    private static final String START_URL = "https://neonjungletools.com/subtext/?app=5";
+    private static final String START_URL = "https://neonjungletools.com/subtext/?app=6";
     private static final String COACH_PRODUCT_ID = "answer_coach_premium";
     private static final int FILE_CHOOSER_REQUEST = 4104;
     private WebView webView;
@@ -54,6 +54,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private String billingMessage = "Connecting to Google Play…";
     private String billingPrice;
     private boolean coachEntitled;
+    private String coachPurchaseToken;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,7 +97,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
-        settings.setUserAgentString(settings.getUserAgentString() + " SubtextAndroid/1.4");
+        settings.setUserAgentString(settings.getUserAgentString() + " SubtextAndroid/1.5");
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         webView.addJavascriptInterface(new BillingBridge(), "SubtextBilling");
@@ -293,10 +294,12 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private void processPurchases(List<Purchase> purchases) {
         boolean purchased = false;
         boolean pending = false;
+        String purchaseToken = null;
         for (Purchase purchase : purchases) {
             if (!purchase.getProducts().contains(COACH_PRODUCT_ID)) continue;
             if (purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
                 purchased = true;
+                purchaseToken = purchase.getPurchaseToken();
                 if (!purchase.isAcknowledged()) {
                     AcknowledgePurchaseParams params = AcknowledgePurchaseParams.newBuilder()
                             .setPurchaseToken(purchase.getPurchaseToken())
@@ -312,6 +315,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
             }
         }
         coachEntitled = purchased;
+        coachPurchaseToken = purchased ? purchaseToken : null;
         billingStatus = purchased ? "purchased" : pending ? "pending" : "ready";
         billingMessage = purchased
                 ? "Answer Coach unlocked. Thank you."
@@ -368,6 +372,17 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
             Uri uri = Uri.parse("https://play.google.com/store/account/subscriptions?sku="
                     + COACH_PRODUCT_ID + "&package=" + getPackageName());
             runOnUiThread(() -> startActivity(new Intent(Intent.ACTION_VIEW, uri)));
+        }
+
+        @JavascriptInterface
+        public String getEntitlementProof() {
+            JSONObject proof = new JSONObject();
+            try {
+                proof.put("packageName", getPackageName());
+                proof.put("productId", COACH_PRODUCT_ID);
+                if (coachPurchaseToken != null) proof.put("purchaseToken", coachPurchaseToken);
+            } catch (JSONException ignored) { }
+            return proof.toString();
         }
     }
 
