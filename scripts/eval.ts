@@ -1,8 +1,7 @@
 // ═════════════════════════════════════════════════════════════
 // THE QUALITY GATE.  `npm run eval`
 //
-// Runs every case in `lib/evalSet.ts` through the on-device engine and, if
-// `--deep` is passed AND a provider key is present, through the AI tier too.
+// Runs every case in `lib/evalSet.ts` through the on-device engine.
 //
 // Three things are checked, in ascending order of importance:
 //
@@ -24,7 +23,6 @@ import { checkLexicon } from "../lib/legitimacy";
 import { answerCoachPrompt } from "../lib/answer-coach-copy";
 import type { Analysis } from "../lib/engine/types";
 
-const DEEP = process.argv.includes("--deep");
 const VERBOSE = process.argv.includes("--verbose") || process.argv.includes("-v");
 const ONLY = process.argv.find((a) => a.startsWith("--only="))?.split("=")[1];
 
@@ -172,68 +170,6 @@ if (!ONLY) {
   console.log("");
 }
 
-// ── the AI tier, only when asked and only when a server is running ──
-async function runDeepTier() {
-  console.log(bold("▸ deep read (AI tier)"));
-  const url = process.env.SUBTEXT_EVAL_URL || "http://127.0.0.1:3000/api/deep-read";
-  for (const c of EVAL_CASES as EvalCase[]) {
-    if (ONLY && c.id !== ONLY) continue;
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: c.text, context: c.context, youName: c.youName }),
-      });
-      const data = (await res.json()) as {
-        ok: boolean;
-        reason?: string;
-        model?: string;
-        read?: {
-          headline: string;
-          subtext: { quote: string }[];
-          interpretations: { title: string; weight: number; charitable: boolean }[];
-        };
-        repairs?: string[];
-      };
-
-      if (c.expectDistress) {
-        if (data.ok) fail(c.id, "DEEP: crisis case reached the model. The server-side screen did not fire.");
-        else console.log(`  ${g("CRISIS BLOCKED")} ${dim(c.id)}`);
-        continue;
-      }
-
-      if (!data.ok) {
-        console.log(`  ${dim(`${c.id}: no read — ${data.reason}`)}`);
-        continue;
-      }
-
-      const read = data.read!;
-      // grounding: re-check every quote against the source, independently of
-      // the server's own validator. Trusting the thing under test is not a test.
-      const src = c.text.toLowerCase().replace(/\s+/g, " ");
-      const ungrounded = read.subtext.filter((s) => !src.includes(s.quote.toLowerCase().replace(/\s+/g, " ")));
-      if (ungrounded.length) fail(c.id, `DEEP: ${ungrounded.length} quote(s) not found in the source`);
-
-      const wsum = read.interpretations.reduce((a, i) => a + i.weight, 0);
-      if (wsum !== 100) fail(c.id, `DEEP: weights sum to ${wsum}`);
-      if (read.interpretations.filter((i) => i.charitable).length !== 1)
-        fail(c.id, "DEEP: not exactly one charitable reading");
-      for (const s of [read.headline, ...read.interpretations.map((i) => i.title)]) {
-        const hits = checkLexicon(s);
-        if (hits.length) fail(c.id, `DEEP: banned phrasing “${hits.join(", ")}”`);
-      }
-
-      console.log(`  ${g("ok")} ${bold(c.id)} ${dim(`(${data.model})`)}`);
-      console.log(`     ${read.headline}`);
-      if (data.repairs?.length) console.log(dim(`     validator repairs: ${data.repairs.length}`));
-    } catch {
-      console.log(`  ${dim(`${c.id}: server not reachable at ${url} — start \`npm run dev\` first`)}`);
-      break;
-    }
-  }
-  console.log("");
-}
-
 function finish() {
   if (failures) {
     console.log(r(bold(`${failures} assertion(s) failed.\n`)));
@@ -242,8 +178,4 @@ function finish() {
   console.log(g(bold("All assertions passed.\n")));
 }
 
-if (DEEP) {
-  void runDeepTier().then(finish);
-} else {
-  finish();
-}
+finish();

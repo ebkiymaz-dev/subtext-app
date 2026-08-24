@@ -72,11 +72,12 @@ work of a step back* **34%** · *There genuinely isn't much here to read* **29%*
 
 ---
 
-## The LLM tier — now real
+## Historical LLM tier note — superseded 2026-08-24
 
-`POST /api/deep-read` · server-only · **one** call per analysis.
+The legacy `POST /api/deep-read` route has been removed. Paid coaching now uses
+`POST /api/answer-coach` with explicit consent, rate limiting and server-verified Google Play entitlement.
 
-- **Provider seam** `resolveDeepProvider()` in `lib/providers.ts`, mirroring `nj_providers/llm.py`.
+- **Provider seam** `resolveCoachProvider()` in `lib/providers.ts`.
   **Gemini** uses the native endpoint because it is the only free option that enforces a response
   **schema**; Groq / OpenAI / Ollama go through the shared chat-completions path. The model ladder
   walks past 404/503, because Google retires ids out from under a pinned name.
@@ -152,9 +153,9 @@ Two cases exist specifically to stop the engine finding menace everywhere:
 
 ---
 
-## Verification, this pass
+## Historical verification record (2026-07-29)
 - `tsc --noEmit` — **clean, 0 errors.**
-- `next build` — **succeeds, 5 routes** (`/`, `/plans`, `/api/capabilities`, `/api/deep-read`,
+- `next build` — **succeeded with the route set that existed at that date**, including the now-removed legacy route (`/`, `/plans`, `/api/capabilities`, `/api/deep-read`,
   `_not-found`). 129 kB first load on the main route.
 - `npm run eval` — **all assertions pass**, spread healthy.
 - Banned lexicon — **0 violations** across every rendered string in all 8 analysable cases.
@@ -166,12 +167,12 @@ Two cases exist specifically to stop the engine finding menace everywhere:
 
 ---
 
-## Still to do
+## Historical to-do record (see README 2026-08-24 section for current launch blockers)
 - **Deployment not rebuilt by this pass.** `%LOCALAPPDATA%\njt-build` is a Windows path and the
   rebuild is a `.bat`; neither is reachable from this Linux sandbox. Run
   `Neon Jungle Tools/deploy/01_build_and_install.bat` and restart the service to serve v2 at
   `neonjungletools.com/subtext/`.
-- **`GEMINI_API_KEY` must be present in the server environment** for the deep read. Confirm the
+- **A supported model provider key must be present in the server environment** for Answer Coach. Confirm the
   deployment's service environment picks up `.env.local`.
 - Spot-check one live Gemini call and confirm the ladder lands on a working model.
 - Grow the eval set toward the 50 conversations `DESIGN_BUILD.md` names as the real go-live gate.

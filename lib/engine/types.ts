@@ -249,7 +249,7 @@ export interface Analysis {
   whatWasntSaid: string[];
   coach: CoachSuggestion[];
   engineVersion: string;
-  /** "on-device" until a deep read is merged in */
+  /** core analysis is always on-device; Answer Coach is a separate result */
   tier: Tier;
   /** model id when tier === "ai" */
   model?: string;

@@ -1,6 +1,21 @@
 # Subtext
 
-> ## 2026-07-29 — engine v2, and the LLM tier is real
+> ## 2026-08-24 — commercial Coach architecture
+>
+> The free reader remains on-device. Paid Answer Coach is now a separate,
+> goal-led structured model request with server-side Google Play entitlement
+> verification, rate limiting, verbatim quote validation, competing readings,
+> user-accountability analysis, and three meaningfully different editable
+> replies. The consumer UI no longer presents psychological-looking
+> percentages; evidence is weak, moderate, or strong with supporting moments.
+> Result detail is collapsed behind progressive disclosure, and progress counts
+> only when the user explicitly finishes a read—there are no streaks.
+>
+> Commercial deployment requires `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` plus one
+> configured model provider. Without both, Coach fails closed and no
+> conversation is sent.
+
+> ## 2026-07-29 — historical engine-v2 note (superseded above)
 >
 > **The free tier got a new brain.** `lib/engine/signals.ts` reads conversational
 > **moves** instead of counting words: bids for connection and whether each was
@@ -8,10 +23,9 @@
 > closing moves vs continuation bids, what was not reciprocated, style matching,
 > where the enthusiasm markers land, and reply latency. See §**Engine v2**.
 >
-> **Premium now makes a real model call.** `POST /api/deep-read`, server-side,
-> one structured Gemini call per analysis, schema-constrained, and every quote
-> validated character-for-character against your paste before it is shown.
-> See §**The deep read**.
+> The legacy Deep Read route described in older notes below has been removed.
+> Personalized paid coaching now uses only `POST /api/answer-coach`, with
+> explicit consent and server-verified Google Play entitlement.
 >
 > **`npm run eval`** is the quality gate — 10 conversations with declared
 > expectations, including the crisis invariant and a **spread** assertion that
@@ -84,18 +98,18 @@ npm run build        # production build
 1. **Intake** — paste a conversation (WhatsApp export, `Name: message` lines, or plain alternating
    lines), answer "which one is you?", pick a context chip (Dating / Work / Family / Friendship).
 2. **The crisis-safety screen runs first** — before parsing effort, before any spend. See below.
-3. **Analysis** — the category panel animates in: each category has a percentage, a calm
-   sequential fill, a one-line read, its evidence count, and its caveat.
+3. **Analysis** — the category panel shows plain-language evidence strength, a one-line read,
+   its evidence count, and its caveat.
 4. **Bidirectional highlight** — click a category and its driving lines light up coral inline in
    the transcript; hover a highlighted line and the panel focuses that category. This is the
    Grammarly mechanic, retargeted from grammar to subtext.
-5. **Competing readings** — 3–5 weighted interpretations summing to 100, none above 60%, exactly
-   one flagged as the most-charitable read (teal), each with a suggested next message.
+5. **Competing readings** — a most-supported interpretation plus a plausible alternative,
+   both tied to evidence rather than pseudo-precise percentages.
 6. **What wasn't said** — the absences, which are often the signal.
-7. **Coach (Premium)** — 2–4 option-framed suggestions, blurred on Free.
-8. **The deep read (Premium)** — an explicit, opt-in button behind a consent line that names the
-   privacy trade before you press it. One real model call.
-9. **Free counter** — 3 analyses/month, then the Premium $8.99 gate. Mock checkout.
+7. **Answer Coach (Premium)** — explicit opt-in personalized coaching based on the user's goal,
+   desired tone and stakes, with three editable reply options and trade-offs.
+8. **Healthy completion** — a read counts only after the user explicitly marks it done; there are
+   no streaks, anxiety loops or recheck rewards.
 
 Five seeded showcase conversations ship with the app: **two lines** (a compliment and a polite
 goodbye — the clearest demonstration of what v2 does that a word-counter cannot), the slow fade,
@@ -169,32 +183,28 @@ readings of independent questions.
 
 ---
 
-## The deep read (Premium) — a real model call
+## Answer Coach (Premium) — goal-led and purchase verified
 
-`POST /api/deep-read`. Server-only, one call per analysis, temperature 0.15.
+`POST /api/answer-coach` is server-only, rate-limited and requires a live Google Play entitlement.
 
 **The order is the safety guarantee:**
 
 1. **Crisis screen, server-side**, on the raw text, before anything else — the client already ran
    it, and running it again means a stale or tampered client still cannot get a distressed message
    to a model. Returns the resource path and spends nothing.
-2. Segmentation + signal extraction (the same on-device code, run again).
-3. One structured call. Gemini uses its native endpoint because it is the only free option that
-   enforces a response **schema**; Groq / OpenAI / Ollama share the chat-completions path.
+2. Google Play verifies package, product, purchase state and expiry server-side.
+3. One structured call. Gemini uses its native endpoint; Groq / OpenAI / Ollama share the
+   chat-completions path.
 4. **Validation.** This is the product:
    - **Grounding** — every quote must appear verbatim in the pasted text. A quote that does not
      match is deleted, and a claim that loses its last quote is deleted with it. This is the one
      check that stops the model inventing evidence, which is the thing it most wants to do.
-   - **Schema** — 3–5 readings, none above 60%, exactly one charitable, weights renormalised to
-     100 **in code** rather than trusted.
+   - **Schema** — summary, recommended approach, competing readings, user contribution, three
+     distinct editable replies with reasons and trade-offs, and an uncertainty label.
    - **Lexicon** — the banned-phrase list applied to every rendered string.
-5. At most **one** repair retry, then honest failure. A missing deep read is a smaller problem than
-   a fluent invented one, and the UI says so.
+5. Invalid output fails closed. Missing coaching is a smaller problem than a fluent invented one.
 
-The validator's repairs are **shown to the user**. A model being corrected is more trustworthy than
-one that appears perfect.
-
-**Provider seam:** `resolveDeepProvider()` in `lib/providers.ts`, mirroring `nj_providers/llm.py`.
+**Provider seam:** `resolveCoachProvider()` in `lib/providers.ts`.
 Model ladder `gemini-3.6-flash` → `gemini-flash-latest` → `gemini-2.0-flash`, walking past 404/503
 because Google retires ids out from under a pinned name. Set `GEMINI_API_KEY` **server-side** — a
 key in a `NEXT_PUBLIC_` variable is a published key.
@@ -205,11 +215,11 @@ key in a `NEXT_PUBLIC_` variable is a published key.
 
 | On-device, always (free) | AI-assisted (Premium, opt-in per analysis) |
 |---|---|
-| Segmentation (three paste formats) | The deep read: subtext claims, relational cues |
-| **The crisis screen** | Its own competing readings and next-move options |
-| Every category score, from the signal layer | |
-| The headline, the competing readings, "what wasn't said", Coach | |
-| All evidence extraction — the verbatim spans behind every score | |
+| Segmentation (paste, export and screenshot formats) | Goal-led response coaching |
+| **The crisis screen** | Multiple possible readings and user-accountability check |
+| Every evidence-strength category, from the signal layer | Three editable replies with trade-offs |
+| The headline, competing readings and "what wasn't said" | |
+| All evidence extraction — verbatim supporting spans | |
 | The interpretation schema and the banned-lexicon check | |
 | The free counter and the paywall | |
 
@@ -221,18 +231,18 @@ no history of who you analysed. That refusal is the moat, not a missing feature.
 ## Server + payment wiring TODO
 
 ### The model call
-- [x] `POST /api/deep-read` — server-side, one structured call, schema-constrained.
-- [x] Schema enforced in code: 3–5 interpretations, none above 60%, exactly one charitable, weights renormalised to 100.
+- [x] `POST /api/answer-coach` — server-side, one structured call, schema-constrained.
+- [x] Schema enforced in code: grounded summary, alternative readings, user contribution and three distinct replies.
 - [x] Grounding check — every quote validated character-for-character against the input; unsupported claims deleted.
 - [x] Banned-lexicon check applied to model output, not just static strings.
 - [x] Crisis screen runs server-side **before** the call as well as client-side.
 - [x] Calibration eval set started — `npm run eval`, 10 cases, with a **spread** assertion.
 - [ ] Grow it to the **50 conversations** `DESIGN_BUILD.md` names as the real go-live gate. Re-run on every prompt change.
-- [ ] Spot-check one live Gemini call on the deployment box — the sandbox this was built in blocks `googleapis.com`.
+- [ ] Spot-check the configured production model on the deployment before promoting beyond internal testing.
 - [ ] Corroboration rule (Law 6): on disagreement between the model and the on-device signals, surface the lower-confidence honest read. Currently both are shown side by side and labelled.
 
 ### Privacy (the central promise — verify, don't assume)
-- [ ] **Body-scrub proving test:** conversation text must never reach a log line, an error tracker, or an analytics payload. Allowlist-based scrubbing, and a test that fails the build if raw text escapes. The `/api/deep-read` catch blocks already log a category rather than the error object, because the error object would carry the conversation — but that is a convention, not yet a test.
+- [ ] **Body-scrub proving test:** conversation text must never reach a log line, an error tracker, or an analytics payload. Add a test that fails the build if raw text escapes.
 - [x] Distress screen runs client-side before anything leaves the device, **and** server-side before the model call.
 - [ ] Jurisdiction-aware crisis links (detect locale → local helpline) — **day one, not later**.
 

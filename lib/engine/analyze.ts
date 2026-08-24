@@ -13,10 +13,8 @@
 // makes "your conversation never touches our server" literally true rather
 // than a marketing line.
 //
-// PREMIUM adds ONE structured server-side model call on top of this output
-// (`lib/deepRead.ts` → `app/api/deep-read/route.ts`). It never replaces the
-// on-device layer; it is merged into it, and the distress screen pre-empts
-// both tiers.
+// PREMIUM Answer Coach is an explicit, separate server-side request. It never
+// replaces the on-device read, and the distress screen pre-empts both tiers.
 // ═════════════════════════════════════════════════════════════
 
 import type { Analysis, ContextId, DistressResult, FamiliarityId, Transcript } from "./types";

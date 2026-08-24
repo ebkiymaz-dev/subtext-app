@@ -56,4 +56,4 @@ export function assertLegitimate(text: string, where: string): string {
 }
 
 export const CONFIDENCE_CAPTION =
-  "Each percentage shows how strongly that pattern appears in these messages. It does not measure the person's feelings or prove their intent.";
+  "Evidence strength shows how consistently the pattern appears in these messages. It does not measure feelings or prove intent.";

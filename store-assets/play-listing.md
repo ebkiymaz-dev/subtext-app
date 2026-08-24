@@ -17,9 +17,9 @@ Paste a conversation. See its language patterns, evidence and possible readings.
 
 ### Full description
 
-Subtext helps you examine what a two-person conversation is carrying without pretending to know what another person secretly meant.
+Subtext helps you examine what a conversation is carrying without pretending to know what another person secretly meant.
 
-Paste a WhatsApp export, “Name: message” lines or a plain alternating conversation. Choose which speaker is you, and Subtext clearly separates both sides in green and blue before it analyses the exchange.
+Paste a WhatsApp export, “Name: message” lines or a screenshot. Confirm the detected speakers, and Subtext clearly separates each participant before it analyses the exchange.
 
 The standard analysis runs on your device. It examines word choice and conversational structure, then shows:
 
@@ -32,9 +32,9 @@ The standard analysis runs on your device. It examines word choice and conversat
 
 Subtext is not a lie detector. It cannot diagnose anyone, prove intent or replace professional advice. It reads language patterns—not people—and explains the limits of every result.
 
-Your standard conversation analysis is not uploaded or saved by Subtext. If an optional AI-assisted Deep Read is available, the app explains the privacy trade-off before anything is sent and runs it only after you deliberately choose it.
+Your standard conversation analysis is not uploaded or saved by Subtext. Paid Answer Coach sends the selected conversation to the disclosed model provider only after you deliberately request personalized coaching; Subtext does not save the conversation.
 
-This first Google Play release is free. There is no checkout, advertising or subscription in the app.
+The reader is free and contains no advertising. Answer Coach is an optional Google Play purchase.
 
 ## App content answers
 
@@ -52,7 +52,7 @@ This first Google Play release is free. There is no checkout, advertising or sub
 
 Answer conservatively from the shipped behavior:
 
-- **Does the app collect or share user data?** Yes — optional conversation text can leave the device only when the user deliberately requests AI-assisted Deep Read. Standard analysis remains on-device.
+- **Does the app collect or share user data?** Yes — optional conversation text can leave the device only when the user deliberately requests paid Answer Coach. Standard analysis remains on-device.
 - **Data shared with third parties?** No for the form, provided the configured model and hosting vendors act only as service providers and/or the transfer qualifies as the disclosed user-initiated action. Re-confirm the provider contracts before submission.
 - **Other user-generated content:** Collected optionally; processed ephemerally; purpose: app functionality; encrypted in transit; not retained by Subtext.
 - **Diagnostics:** Standard hosting/security request logs may be collected; purpose: app functionality and fraud prevention/security; retention limited to operational need.
@@ -69,18 +69,18 @@ First Google Play test release. Paste-first conversation analysis, clear green/b
 
 ## Reviewer note
 
-Subtext is a Trusted Web Activity for the developer-owned PWA at `https://neonjungletools.com/subtext/`. Core analysis runs locally in the browser. No login is required. Use any included example to test the complete flow. The app refuses group chats with more than two named speakers and stops interpretive scoring when acute-distress language is detected.
+Subtext is a Trusted Web Activity for the developer-owned PWA at `https://neonjungletools.com/subtext/`. Core analysis runs locally in the browser. No login is required. Use an included example to test the complete flow. Named group-chat speakers are supported, and interpretive scoring stops when acute-distress language is detected.
 
 ## Asset checklist
 
 - **App icon:** `store-assets/app-icon-512.png` — 512 × 512, PNG.
 - **Feature graphic:** `store-assets/feature-graphic-1024x500.png` — 1024 × 500, PNG.
 - **Phone screenshots:** `store-assets/screenshots/01` through `05` — 1080 × 1920, PNG.
-- **Signed bundle:** `android-twa/release/subtext-v1-play.aab` — version code 1.
+- **Signed bundle:** `android-twa/release/subtext-v6-play.aab` — version code 6.
 
 ## Submission cautions
 
-- Reconfirm the Deep Read provider and its retention terms immediately before submitting Data Safety.
-- Treat standard hosting logs and optional Deep Read as off-device collection; do not select “no data collected.”
+- Reconfirm the Answer Coach provider and its retention terms immediately before submitting Data Safety.
+- Treat standard hosting logs and optional Answer Coach as off-device collection; do not select “no data collected.”
 - Do not claim an independent security review.
 - Do not present Subtext as medical, diagnostic, therapeutic, or a lie detector.
