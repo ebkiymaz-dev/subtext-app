@@ -8,14 +8,17 @@ Add-Type -AssemblyName System.Drawing
 $projectRoot = $PSScriptRoot
 $ecosystemRoot = (Resolve-Path (Join-Path $projectRoot "..\..")).Path
 $javaHome = Join-Path $ecosystemRoot "FOUNDRY\android-tooling\.jdk\jdk-17.0.20+8"
+if (-not (Test-Path (Join-Path $javaHome "bin\java.exe"))) {
+    $javaHome = (Get-ChildItem (Join-Path $projectRoot ".jdk17") -Directory | Select-Object -First 1).FullName
+}
 $androidSdk = Join-Path $env:LOCALAPPDATA "Android\Sdk"
 $java = Join-Path $javaHome "bin\java.exe"
 $keytool = Join-Path $javaHome "bin\keytool.exe"
 $jarsigner = Join-Path $javaHome "bin\jarsigner.exe"
 $apksignerJar = Join-Path $androidSdk "build-tools\36.1.0\lib\apksigner.jar"
 $keystore = Join-Path $projectRoot "android.keystore"
-$unsignedApk = Join-Path $projectRoot "app\build\outputs\apk\release\app-release-unsigned.apk"
-$unsignedBundle = Join-Path $projectRoot "app\build\outputs\bundle\release\app-release.aab"
+$unsignedApk = Join-Path $projectRoot "build-v5\app\outputs\apk\release\app-release-unsigned.apk"
+$unsignedBundle = Join-Path $projectRoot "build-v5\app\outputs\bundle\release\app-release.aab"
 $alias = "subtext"
 $releaseDir = Join-Path $projectRoot "release"
 $logPath = Join-Path $projectRoot "signing-diagnostic.log"
@@ -215,8 +218,8 @@ try {
     Write-Diagnostic "Permanent key backup verified."
 
     New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-    $releaseApk = Join-Path $releaseDir "subtext-v4-signed.apk"
-    $releaseBundle = Join-Path $releaseDir "subtext-v4-play.aab"
+    $releaseApk = Join-Path $releaseDir "subtext-v5-signed.apk"
+    $releaseBundle = Join-Path $releaseDir "subtext-v5-play.aab"
 
     $env:SUBTEXT_STORE_PASSWORD = $passwords.StorePassword
     $env:SUBTEXT_KEY_PASSWORD = $passwords.KeyPassword
@@ -273,7 +276,7 @@ try {
 
     Clear-Variable passwords -ErrorAction SilentlyContinue
     [System.Windows.Forms.MessageBox]::Show(
-        "Success. The signed Subtext version-4 Google Play bundle is ready and verified.",
+        "Success. The signed Subtext version-5 Google Play bundle is ready and verified.",
         "Subtext release ready"
     ) | Out-Null
 }

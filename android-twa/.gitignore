@@ -1,6 +1,12 @@
 .gradle/
 .gradle-user/
+.gradle-user-v5/
+.android-user/
+.jdk17/
+.jdk17.zip
+.m2-local/
 build/
+build-v5/
 app/build/
 *.apk
 *.aab

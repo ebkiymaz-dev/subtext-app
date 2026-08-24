@@ -16,6 +16,13 @@
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
+// Keep Codex/release builds away from legacy OneDrive-owned Gradle outputs.
+// This avoids Windows ACL collisions without deleting any previous build.
+buildDir = file('build-v5/root')
+subprojects {
+    buildDir = file("$rootDir/build-v5/$name")
+}
+
 buildscript {
 
     repositories {
@@ -32,6 +39,7 @@ buildscript {
 
 allprojects {
     repositories {
+        maven { url uri("$rootDir/.m2-local") }
         google()
         jcenter()
     }
