@@ -81,7 +81,7 @@ export function analyze(
       categories,
       interpretations,
       whatWasntSaid: whatWasntSaid(categories, transcript, signals, profile),
-      coach: buildCoach(categories, signals, profile),
+      coach: buildCoach(categories, signals, profile, transcript),
       engineVersion: ENGINE_VERSION,
       tier: "on-device",
       methodNotes: [

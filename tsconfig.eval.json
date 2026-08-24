@@ -13,5 +13,5 @@
     "rootDir": ".",
     "noEmitOnError": true
   },
-  "include": ["scripts/eval.ts", "scripts/mobile-fuzz.ts", "scripts/ocr-group-eval.ts", "lib/engine/**/*.ts", "lib/answer-coach-copy.ts", "lib/evalSet.ts", "lib/legitimacy.ts", "lib/group-chat.ts", "lib/screenshot-ocr.ts"]
+  "include": ["scripts/eval.ts", "scripts/coach-context-eval.ts", "scripts/mobile-fuzz.ts", "scripts/ocr-group-eval.ts", "lib/engine/**/*.ts", "lib/answer-coach-copy.ts", "lib/evalSet.ts", "lib/legitimacy.ts", "lib/group-chat.ts", "lib/screenshot-ocr.ts"]
 }

@@ -17,7 +17,7 @@ export default function CoachCard({
   locked: boolean;
   onUnlock?: () => void;
 }) {
-  const visibleSuggestions = locked
+  const visibleSuggestions: CoachSuggestion[] = locked
     ? [
         { action: "A clearer reply option is ready", reasoning: "Unlock Answer Coach to see the wording and why it fits this conversation." },
         { action: "A lower-pressure alternative is ready", reasoning: "The locked page never embeds your paid suggestions in the browser." },
@@ -40,7 +40,18 @@ export default function CoachCard({
       <ul className={`space-y-3 ${locked ? "select-none blur-[4px]" : ""}`} aria-hidden={locked}>
         {visibleSuggestions.map((s) => (
           <li key={s.action} className="rounded-sbt bg-sbt-paper/70 p-3.5">
+            {s.mode ? (
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sbt-gold-700">
+                {s.mode === "practical" ? "Practical & protected" : s.mode}
+              </p>
+            ) : null}
             <p className="font-display text-[14px] text-sbt-ink">{s.action}</p>
+            {s.suggestedReply ? (
+              <div className="mt-2 rounded-lg border border-sbt-gold/25 bg-white/85 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-sbt-mute">Reply you can edit</p>
+                <p className="mt-1 text-[14px] leading-relaxed text-sbt-ink">“{s.suggestedReply}”</p>
+              </div>
+            ) : null}
             <p className="mt-1 text-[13px] leading-relaxed text-sbt-dusk">{s.reasoning}</p>
           </li>
         ))}
@@ -66,6 +77,11 @@ export default function CoachCard({
             </p>
           </div>
         </div>
+      ) : null}
+      {!locked ? (
+        <p className="mt-3 text-[11px] leading-relaxed text-sbt-mute">
+          Psychologically informed options based on observable wording and context—not a clinical judgment, mind-reading, or a guaranteed outcome. Edit any reply so it is true in your voice.
+        </p>
       ) : null}
     </section>
   );

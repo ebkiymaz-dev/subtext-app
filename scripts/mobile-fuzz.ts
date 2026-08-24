@@ -2,8 +2,8 @@ import { analyze } from "../lib/engine/analyze";
 import type { ContextId, FamiliarityId } from "../lib/engine/types";
 
 const contexts: ContextId[] = [
-  "dating", "friendship", "family", "work", "roommate",
-  "ex_partner", "business", "marketplace", "neighbor", "other",
+  "partner", "dating", "friendship", "family", "work", "roommate",
+  "ex_partner", "business", "marketplace", "neighbor", "stranger", "other",
 ];
 const familiarities: FamiliarityId[] = ["days", "months", "year", "five_years", "lifetime"];
 const lines = [

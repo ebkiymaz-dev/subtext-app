@@ -60,6 +60,7 @@ import { clearActiveRead, keepActiveRead, readActiveRead } from "@/lib/active-re
 type Phase = "intake" | "analyzing" | "result" | "distress";
 
 const CONTEXT_PLACEHOLDERS: Record<ContextId, string> = {
+  partner: "Paste the conversation with your partner here…",
   dating: "Paste their last text here…",
   friendship: "Paste the text you keep rereading here…",
   family: "Paste the family message you want help reading here…",
@@ -67,8 +68,9 @@ const CONTEXT_PLACEHOLDERS: Record<ContextId, string> = {
   roommate: "Paste the message about the dishes, rent, or boundaries here…",
   ex_partner: "Paste the 2 AM message here…",
   business: "Paste the negotiation message here…",
-  marketplace: "Paste the buyer or seller's message here…",
+  marketplace: "Paste the Amazon, marketplace, buyer, or seller conversation here…",
   neighbor: "Paste the message from your neighbour here…",
+  stranger: "Paste the conversation with the person you do not know here…",
   other: "Paste the conversation you want help reading here…",
 };
 

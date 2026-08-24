@@ -72,6 +72,20 @@ interface ContextSpec {
 }
 
 export const CONTEXTS: Record<ContextId, ContextSpec> = {
+  partner: {
+    label: "Partner",
+    hint: "girlfriend, boyfriend or spouse — connection, needs and repair",
+    formality: 0.24,
+    register: 1.12,
+    reciprocity: 1.08,
+    closure: 0.9,
+    warmth: 1.12,
+    latencyTolerance: 1.15,
+    transactional: false,
+    pool: ["boundary_pressure", "guilt"],
+    frame:
+      "Established partners have shared history and an informal baseline. The useful question is not who is right, but whether each person’s need, limit and request is made clear enough to answer without guessing.",
+  },
   dating: {
     label: "Dating",
     hint: "early romantic — bids, fades and register carry the most weight here",
@@ -141,6 +155,20 @@ export const CONTEXTS: Record<ContextId, ContextSpec> = {
     pool: ["boundary_pressure", "commitment_specificity", "guilt"],
     frame:
       "Neighbours are the one relationship nobody chose and nobody can exit, so almost everything difficult gets said through politeness. The register is elaborate on purpose; what matters is the request underneath it and whether a limit is being worked around.",
+  },
+  stranger: {
+    label: "Stranger",
+    hint: "someone you do not know — clarity, privacy and safety first",
+    formality: 0.62,
+    register: 0.55,
+    reciprocity: 0.25,
+    closure: 0.35,
+    warmth: 0.2,
+    latencyTolerance: 1.8,
+    transactional: true,
+    pool: ["boundary_pressure", "pressure", "evasion"],
+    frame:
+      "With a stranger there is no reliable relationship baseline to interpret. Warmth and response speed are weak evidence; clear limits, requested information and whether pressure continues after a no are what matter.",
   },
   roommate: {
     label: "Roommate",
@@ -215,6 +243,7 @@ export const CONTEXTS: Record<ContextId, ContextSpec> = {
 };
 
 export const CONTEXT_ORDER: ContextId[] = [
+  "partner",
   "dating",
   "friendship",
   "family",
@@ -224,6 +253,7 @@ export const CONTEXT_ORDER: ContextId[] = [
   "business",
   "marketplace",
   "neighbor",
+  "stranger",
   "other",
 ];
 

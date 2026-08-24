@@ -461,20 +461,141 @@ export function whatWasntSaid(
 export function buildCoach(
   cats: CategoryScore[],
   s: SignalSummary,
-  p: RelationshipProfile
+  p: RelationshipProfile,
+  transcript: Transcript
 ): CoachOut[] {
   const out: CoachOut[] = [];
   const find = (id: string) => cats.find((c) => c.id === id);
+  const otherName = transcript.messages.find((m) => m.speaker === "them")?.name;
+  const greeting = otherName && !/^(them|other|unknown)$/i.test(otherName) ? `${otherName}, ` : "";
+
+  // Start with wording that fits the real-world relationship. These are
+  // editable options, not verdicts about the other person or tactics for
+  // controlling them. The user keeps the final choice.
+  switch (p.context) {
+    case "partner":
+      out.push({
+        mode: "warm",
+        action: "Reconnect, then ask for one honest answer",
+        suggestedReply: `${greeting}I care about us, and I do not want us to guess what the other means. Can we talk about what each of us needs here?`,
+        reasoning:
+          "This names care without surrendering the issue. It asks for needs and a conversation, which makes repair possible without assigning a motive or a clinical label.",
+      });
+      out.push({
+        mode: "boundary",
+        action: "Name the effect and the limit",
+        suggestedReply: `${greeting}I want to discuss this, but I cannot do it through insults or pressure. I am available when we can speak respectfully.`,
+        reasoning:
+          "A useful boundary describes the conduct, your response, and the condition for continuing. It does not threaten, punish, or claim to know why they acted that way.",
+      });
+      break;
+    case "dating":
+      out.push({
+        mode: "clear",
+        action: "Ask for clarity without chasing",
+        suggestedReply: `${greeting}I have enjoyed getting to know you. Are you interested in continuing this? Either answer is okay; I would just prefer clarity.`,
+        reasoning:
+          "A direct, low-pressure question protects your time and gives the other person room to answer honestly. A non-answer is also useful information.",
+      });
+      break;
+    case "work":
+      out.push({
+        mode: "practical",
+        action: "Turn the exchange into a documented next step",
+        suggestedReply: `${greeting}to make sure I deliver the right result, could you confirm the expected outcome, who owns the decision, and the deadline? I will reply with the next step.`,
+        reasoning:
+          "At work, specifics protect the user better than reading tone. This keeps the message professional, creates a shared record, and makes responsibility and timing visible.",
+      });
+      out.push({
+        mode: "boundary",
+        action: "Raise a workplace concern neutrally",
+        suggestedReply: `${greeting}I want to resolve this constructively. Could we keep the feedback specific to the work and agree the next action in writing?`,
+        reasoning:
+          "This avoids emotional speculation and retaliation. It requests observable feedback and a record while leaving room for a professional resolution.",
+      });
+      break;
+    case "marketplace":
+      out.push({
+        mode: "practical",
+        action: "Keep the transaction specific and on-platform",
+        suggestedReply: `${greeting}please confirm the exact item, condition, total price, delivery date, and return terms here in the platform chat. I will only pay through the platform checkout.`,
+        reasoning:
+          "For Amazon or another marketplace, verifiable facts and platform protections matter more than tone. Keeping messages and payment on-platform preserves evidence and reduces avoidable risk.",
+      });
+      out.push({
+        mode: "boundary",
+        action: "Decline an unsafe or unclear transaction",
+        suggestedReply: `${greeting}I am not comfortable moving payment or communication off-platform. If the purchase cannot be completed here under the stated terms, I will not proceed.`,
+        reasoning:
+          "This protects money, privacy, and recourse. It sets a condition without accusing the other person of fraud or arguing about their intent.",
+      });
+      break;
+    case "business":
+      out.push({
+        mode: "practical",
+        action: "Put the commercial terms in writing",
+        suggestedReply: `${greeting}to confirm, my understanding is: scope [ ], price [ ], owner [ ], and deadline [ ]. Please correct anything that differs before we proceed.`,
+        reasoning:
+          "A written summary reduces ambiguity and protects optionality. It moves the negotiation from impressions to terms that either side can confirm or change.",
+      });
+      break;
+    case "friendship":
+      out.push({
+        mode: "warm",
+        action: "Protect the friendship while naming the issue",
+        suggestedReply: `${greeting}I value our friendship, so I would rather ask than assume. I felt some distance in this exchange. Is something between us, or is life simply heavy right now?`,
+        reasoning:
+          "This separates an observation from an interpretation and offers more than one explanation. It makes honesty easier without forcing agreement.",
+      });
+      break;
+    case "family":
+      out.push({
+        mode: "boundary",
+        action: "State a family boundary without debating it",
+        suggestedReply: `${greeting}I understand that you feel strongly. My decision is [ ]. I am willing to discuss it respectfully, but I am not available for pressure or insults.`,
+        reasoning:
+          "Family history can pull the conversation into obligation and old roles. This acknowledges emotion while keeping the decision and conditions under the user’s control.",
+      });
+      break;
+    case "ex_partner":
+      out.push({
+        mode: "clear",
+        action: "Keep the purpose and boundary explicit",
+        suggestedReply: `${greeting}I can discuss [specific practical issue]. I am not available to reopen the relationship conversation. Please keep messages to that topic.`,
+        reasoning:
+          "A narrow purpose reduces mixed signals and protects both sides from an exchange neither agreed to have.",
+      });
+      break;
+    case "stranger":
+      out.push({
+        mode: "boundary",
+        action: "Use the minimum information needed",
+        suggestedReply: `${greeting}no, thank you. I am not comfortable sharing that information. Please do not contact me again.`,
+        reasoning:
+          "With a stranger, the user does not owe personal details, a debate, or continued access. A short boundary limits exposure and avoids revealing more than necessary.",
+      });
+      break;
+    default:
+      out.push({
+        mode: "clear",
+        action: "Separate what happened from what you need",
+        suggestedReply: `${greeting}I may be reading this differently than you intended. What I need now is [specific answer or action]. Can you confirm that directly?`,
+        reasoning:
+          "This avoids pretending to know the other person’s motives. It makes the user’s need answerable and leaves room for correction.",
+      });
+  }
 
   if (s.softClose) {
     const bid = s.bids.find((b) => b.by === "you" && b.response === "minimal");
     out.push({
+      mode: "clear",
       action: "You could let the next move be theirs.",
       reasoning:
         "You have just put something warm on the table and it was received rather than picked up. Adding another message on top of it makes the next reply a response to your persistence instead of to the compliment — which destroys the only clean signal you were going to get. Waiting is not a tactic here; it is the only way to actually find out.",
       evidenceMessageId: bid?.responseMessageId ?? undefined,
     });
     out.push({
+      mode: "clear",
       action: "If you do write again, make it about something other than the compliment.",
       reasoning:
         "Re-raising it asks them to grade your feelings, which almost nobody answers honestly. A neutral opening on a different subject gives them a way back in that costs them nothing to take.",
@@ -570,7 +691,9 @@ export function buildCoach(
 }
 
 interface CoachOut {
+  mode?: "warm" | "clear" | "boundary" | "practical";
   action: string;
+  suggestedReply?: string;
   reasoning: string;
   evidenceMessageId?: string;
 }

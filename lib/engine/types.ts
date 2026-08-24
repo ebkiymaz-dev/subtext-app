@@ -39,6 +39,7 @@ export interface Transcript {
  * weighting of every relational signal. See `relationship.ts`.
  */
 export type ContextId =
+  | "partner"
   | "dating"
   | "friendship"
   | "family"
@@ -48,6 +49,7 @@ export type ContextId =
   | "business"
   | "marketplace"
   | "neighbor"
+  | "stranger"
   | "other";
 
 /**
@@ -131,7 +133,11 @@ export interface Interpretation {
 }
 
 export interface CoachSuggestion {
+  /** The communication posture this option takes. */
+  mode?: "warm" | "clear" | "boundary" | "practical";
   action: string;
+  /** Ready-to-edit wording. It is an option, never an instruction. */
+  suggestedReply?: string;
   reasoning: string;
   evidenceMessageId?: string;
 }
