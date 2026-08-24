@@ -15,6 +15,13 @@ interface SubtextBillingBridge {
   purchaseAnswerCoach(): void;
   restorePurchases(): void;
   manageSubscription(): void;
+  getEntitlementProof(): string;
+}
+
+export interface PlayEntitlementProof {
+  packageName?: string;
+  productId?: string;
+  purchaseToken?: string;
 }
 
 declare global {
@@ -68,6 +75,16 @@ export function managePlaySubscription(): boolean {
   if (!window.SubtextBilling) return false;
   window.SubtextBilling.manageSubscription();
   return true;
+}
+
+export function readPlayEntitlementProof(): PlayEntitlementProof | null {
+  if (!window.SubtextBilling) return null;
+  try {
+    const proof = JSON.parse(window.SubtextBilling.getEntitlementProof()) as PlayEntitlementProof;
+    return proof.packageName && proof.productId && proof.purchaseToken ? proof : null;
+  } catch {
+    return null;
+  }
 }
 
 export function stateFromBillingEvent(event: Event): PlayBillingState | null {

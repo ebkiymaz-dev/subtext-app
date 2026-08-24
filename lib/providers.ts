@@ -11,14 +11,14 @@
 // It reads process.env for names like GROQ_API_KEY. Those are deliberately NOT
 // prefixed NEXT_PUBLIC_, because that prefix inlines a value into the browser
 // bundle — a provider key in a NEXT_PUBLIC_ variable is a published key. The
-// only importer is `app/api/capabilities/route.ts` (server-only). Never import
-// this from a "use client" component.
+// importers are server-only Route Handlers. Never import this from a "use
+// client" component.
 //
 // ── SUBTEXT IS THE SPECIAL CASE ──────────────────────────────
 // This app's core promise is "your conversation never touches our server", and
 // that promise is architectural: segmentation, the distress screen and every
-// deterministic category run on-device and always will. Only the `inferred`
-// category scores and the interpretation prose would ever go to a model.
+// deterministic category run on-device and always will. Only an explicit,
+// paid Answer Coach request sends conversation text to a configured provider.
 //
 // So a missing LLM here is NOT a broken app — it is the fully private one. The
 // copy below says that rather than nagging, and Ollama is presented as the
@@ -154,11 +154,11 @@ export function resolveLlmProvider(): string {
 }
 
 // ═════════════════════════════════════════════════════════════
-// THE DEEP-READ PROVIDER SEAM (Premium tier).
+// THE ANSWER-COACH PROVIDER SEAM (Premium tier).
 //
 // `capabilityReport()` below answers "what is configured?" for the UI and
 // returns booleans only. THIS function answers "how do I call it?" and
-// returns a key — so it is only ever called from `app/api/deep-read/route.ts`,
+// returns a key — so it is only ever called from the Answer Coach server route,
 // which is a server Route Handler. It must never be imported from a
 // "use client" module; doing so would put a provider key in the bundle.
 //
@@ -169,7 +169,7 @@ export function resolveLlmProvider(): string {
 // keeps a pinned id from becoming an outage.
 // ═════════════════════════════════════════════════════════════
 
-export interface DeepProvider {
+export interface CoachProvider {
   provider: string;
   label: string;
   /** which wire protocol to speak */
@@ -185,7 +185,7 @@ export interface DeepProvider {
   privacy: string;
 }
 
-const DEEP_LADDERS: Record<string, string[]> = {
+const COACH_MODEL_LADDERS: Record<string, string[]> = {
   // Verified against the live API 2026-07-29 in nj_providers: ListModels and
   // generateContent disagree, so this ladder is the call-verified one.
   gemini: ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.0-flash"],
@@ -194,7 +194,7 @@ const DEEP_LADDERS: Record<string, string[]> = {
   openai: ["gpt-4o-mini"],
 };
 
-export function resolveDeepProvider(): DeepProvider {
+export function resolveCoachProvider(): CoachProvider {
   const provider = resolveLlmProvider();
   const spec = LLM_SPECS[provider];
   // Claude's Messages API is a different shape from chat-completions. A shim
@@ -203,8 +203,8 @@ export function resolveDeepProvider(): DeepProvider {
   const configured = llmIsConfigured(provider) && provider !== "claude";
   const envModel = env(`${provider.toUpperCase()}_MODEL`);
   const ladder = envModel
-    ? [envModel, ...(DEEP_LADDERS[provider] ?? []).filter((m) => m !== envModel)]
-    : (DEEP_LADDERS[provider] ?? []);
+    ? [envModel, ...(COACH_MODEL_LADDERS[provider] ?? []).filter((m) => m !== envModel)]
+    : (COACH_MODEL_LADDERS[provider] ?? []);
 
   const baseUrl =
     provider === "groq"
