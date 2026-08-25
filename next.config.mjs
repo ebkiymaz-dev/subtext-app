@@ -23,6 +23,37 @@ const basePath =
     ? ""
     : `/${raw.replace(/^\/+/, "").replace(/\/+$/, "")}`;
 
+// Tesseract's current browser worker/core/language assets load from jsDelivr.
+// Keep that one dependency explicit; every other active-content origin is
+// denied. `unsafe-inline` is required by Next's bootstrap and JSON-LD until the
+// app adopts per-request CSP nonces.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "frame-src 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data: blob:",
+  "connect-src 'self' https://cdn.jsdelivr.net",
+  "worker-src 'self' blob: https://cdn.jsdelivr.net",
+  "manifest-src 'self'",
+  "media-src 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Referrer-Policy", value: "no-referrer" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(self), usb=(), interest-cohort=()" },
+];
+
 const nextConfig = {
   basePath,
   // The production Caddy route and the Android start URL both use /subtext/.
@@ -32,6 +63,9 @@ const nextConfig = {
   // when the variable is not set at all.
   env: { NEXT_PUBLIC_BASE_PATH: basePath },
   reactStrictMode: true,
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
 };
 
 export default nextConfig;

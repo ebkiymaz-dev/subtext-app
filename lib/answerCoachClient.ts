@@ -13,14 +13,24 @@ export async function requestPersonalizedCoach(input: {
   stakes?: string;
   entitlement: PlayEntitlementProof;
 }): Promise<PersonalizedCoachResult> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(
+    () => controller.abort(new DOMException("Answer Coach timed out", "TimeoutError")),
+    38_000,
+  );
   try {
     const response = await fetch(withBase("/api/answer-coach"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
+      signal: controller.signal,
     });
     return await response.json() as PersonalizedCoachResult;
   } catch {
-    return { ok: false, reason: "Could not reach Answer Coach. Your local analysis remains available." };
+    return { ok: false, reason: controller.signal.aborted
+      ? "Answer Coach took too long to respond. Your local analysis remains available; try again shortly."
+      : "Could not reach Answer Coach. Your local analysis remains available." };
+  } finally {
+    window.clearTimeout(timer);
   }
 }

@@ -13,5 +13,5 @@
     "rootDir": ".",
     "noEmitOnError": true
   },
-  "include": ["scripts/eval.ts", "scripts/coach-context-eval.ts", "scripts/personalized-coach-eval.ts", "scripts/mobile-fuzz.ts", "scripts/ocr-group-eval.ts", "lib/engine/**/*.ts", "lib/answer-coach-copy.ts", "lib/evalSet.ts", "lib/legitimacy.ts", "lib/group-chat.ts", "lib/screenshot-ocr.ts"]
+  "include": ["scripts/eval.ts", "scripts/coach-context-eval.ts", "scripts/personalized-coach-eval.ts", "scripts/mobile-fuzz.ts", "scripts/ocr-group-eval.ts", "scripts/reliability-eval.ts", "lib/engine/**/*.ts", "lib/server/boundedFetch.ts", "lib/server/requestControl.ts", "lib/answer-coach-copy.ts", "lib/evalSet.ts", "lib/legitimacy.ts", "lib/group-chat.ts", "lib/screenshot-ocr.ts"]
 }

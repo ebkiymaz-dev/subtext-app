@@ -1,9 +1,11 @@
 import { createHash, createSign } from "node:crypto";
+import { fetchWithTimeout } from "./boundedFetch";
 
 const PACKAGE_NAME = "com.neonjungle.subtext";
 const PRODUCT_ID = "answer_coach_premium";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/androidpublisher";
 const GOOGLE_AUD = "https://oauth2.googleapis.com/token";
+const GOOGLE_TIMEOUT_MS = 5_000;
 
 interface ServiceAccount { client_email: string; private_key: string }
 let cachedAccess: { token: string; until: number } | null = null;
@@ -34,12 +36,12 @@ async function accessToken(account: ServiceAccount): Promise<string> {
   const signer = createSign("RSA-SHA256");
   signer.update(unsigned);
   const assertion = `${unsigned}.${base64url(signer.sign(account.private_key))}`;
-  const response = await fetch(GOOGLE_AUD, {
+  const response = await fetchWithTimeout(GOOGLE_AUD, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
     cache: "no-store",
-  });
+  }, GOOGLE_TIMEOUT_MS);
   if (!response.ok) throw new Error(`Google OAuth ${response.status}`);
   const data = (await response.json()) as { access_token?: string; expires_in?: number };
   if (!data.access_token) throw new Error("Google OAuth returned no access token");
@@ -57,9 +59,10 @@ export async function verifyPlayEntitlement(proof: EntitlementProof): Promise<En
   const subjectHash = createHash("sha256").update(proof.purchaseToken).digest("hex").slice(0, 24);
   try {
     const token = await accessToken(account);
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(PACKAGE_NAME)}/purchases/subscriptionsv2/tokens/${encodeURIComponent(proof.purchaseToken)}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+      GOOGLE_TIMEOUT_MS,
     );
     if (response.status === 404 || response.status === 400) return { ok: false, reason: "invalid" };
     if (!response.ok) return { ok: false, reason: "unavailable" };

@@ -13,7 +13,8 @@
     "eval:coach": "tsc -p tsconfig.eval.json && node .eval-out/scripts/coach-context-eval.js",
     "eval:personalized-coach": "tsc -p tsconfig.eval.json && node .eval-out/scripts/personalized-coach-eval.js",
     "eval:mobile": "tsc -p tsconfig.eval.json && node .eval-out/scripts/mobile-fuzz.js",
-    "eval:ocr-group": "tsc -p tsconfig.eval.json && node .eval-out/scripts/ocr-group-eval.js"
+    "eval:ocr-group": "tsc -p tsconfig.eval.json && node .eval-out/scripts/ocr-group-eval.js",
+    "eval:reliability": "tsc -p tsconfig.eval.json && node .eval-out/scripts/reliability-eval.js"
   },
   "dependencies": {
     "next": "16.3.2",
