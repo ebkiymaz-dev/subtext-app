@@ -113,7 +113,7 @@ export default function Home() {
   const [ocrSpeakersConfirmed, setOcrSpeakersConfirmed] = useState(true);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
-  const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
 
   const [coachGoal, setCoachGoal] = useState<CoachGoalId>("understand");
   const [coachTone, setCoachTone] = useState<CoachToneId>("direct");
@@ -241,6 +241,12 @@ export default function Home() {
     if (!file.type.startsWith("image/")) {
       setOcrState("error");
       setOcrMessage("Choose a PNG, JPG, WEBP, or another image file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setOcrState("error");
+      setOcrMessage("That screenshot is over 10 MB. Crop or compress it, then try again.");
+      if (screenshotInput.current) screenshotInput.current.value = "";
       return;
     }
     setOcrState("reading");
@@ -436,9 +442,13 @@ export default function Home() {
   }
 
   function saveToPrivateArchive() {
-    const profile = localProfile ?? createLocalProfile("Private archive");
-    if (!localProfile) setLocalProfile(profile);
-    saveCurrentRead(profile);
+    try {
+      const profile = localProfile ?? createLocalProfile("Private archive");
+      if (!localProfile) setLocalProfile(profile);
+      saveCurrentRead(profile);
+    } catch {
+      setSaveState("error");
+    }
   }
 
   async function shareRead() {
@@ -563,7 +573,7 @@ export default function Home() {
               onClick={saveToPrivateArchive}
               className="min-h-11 rounded-sbt border-2 border-sbt-gold/55 bg-sbt-gold/[0.10] px-3 py-2 text-sm font-semibold text-sbt-gold-700 disabled:border-emerald-300 disabled:bg-emerald-50 disabled:text-emerald-800"
             >
-              {saveState === "saved" ? "Saved ✓" : "Save to archive"}
+              {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Try saving again" : "Save to archive"}
             </button>
             <button type="button" onClick={shareRead} className="min-h-11 rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">
               {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share read"}
@@ -575,6 +585,11 @@ export default function Home() {
           {shareState === "failed" ? (
             <p role="status" className="mt-2 text-xs text-sbt-mute">
               Sharing was unavailable on this device. Your conversation was not included or uploaded.
+            </p>
+          ) : null}
+          {saveState === "error" ? (
+            <p role="alert" className="mt-2 text-xs text-sbt-rose">
+              This device could not save the archive, usually because private storage is unavailable or full. Nothing was uploaded.
             </p>
           ) : null}
         </section>
@@ -706,9 +721,14 @@ export default function Home() {
             setRunError(null);
           }}
           rows={7}
+          maxLength={12_000}
           placeholder={CONTEXT_PLACEHOLDERS[contextConfirmed ? context : "other"]}
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
         />
+
+        <p className="mt-1 text-right text-[10px] text-sbt-mute" aria-live="polite">
+          {raw.length.toLocaleString()} / 12,000 characters
+        </p>
 
         <div className="mt-2 flex items-center gap-2 text-[11px] text-emerald-900">
           <span aria-hidden="true">🔒</span>

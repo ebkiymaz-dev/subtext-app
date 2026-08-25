@@ -113,6 +113,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/privacy" className="underline underline-offset-2 hover:text-sbt-dusk">
               Privacy policy
             </Link>
+            <Link href="/terms" className="underline underline-offset-2 hover:text-sbt-dusk">
+              Terms
+            </Link>
           </div>
         </div>
       </footer>

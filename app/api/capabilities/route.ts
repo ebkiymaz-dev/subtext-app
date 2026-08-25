@@ -13,7 +13,7 @@
 // ═════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
-import { capabilityReport } from "@/lib/providers";
+import { capabilityReport, resolveCoachProvider } from "@/lib/providers";
 
 // Read the environment per request, so pasting a key and restarting is enough
 // to see the state change.
@@ -22,7 +22,16 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    return NextResponse.json(capabilityReport(), {
+    const report = capabilityReport();
+    const coach = resolveCoachProvider();
+    return NextResponse.json({
+      ...report,
+      coachProvider: {
+        configured: coach.configured,
+        label: coach.label,
+        privacy: coach.privacy,
+      },
+    }, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch {
