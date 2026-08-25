@@ -29,7 +29,7 @@
 
     <application
         android:name="Application"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/appName"
 
@@ -159,18 +159,8 @@
 
         </activity>
 
-        <activity
-            android:name=".ShareReceiverActivity"
-            android:exported="true"
-            android:label="Send to Subtext"
-            android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
-            </intent-filter>
-        </activity>
+        <!-- Share import remains disabled until text can cross the native/web
+             boundary without appearing in a URL, request log, or cache key. -->
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
 

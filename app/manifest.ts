@@ -28,12 +28,6 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#FAF7F2",
     theme_color: "#FAF7F2",
     categories: ["productivity", "utilities"],
-    share_target: {
-      action: p("/"),
-      method: "GET",
-      enctype: "application/x-www-form-urlencoded",
-      params: { title: "title", text: "text", url: "url" },
-    },
     icons: [
       { src: p("/icon.svg"), sizes: "any", type: "image/svg+xml", purpose: "any" },
       { src: p("/icon-192.png"), sizes: "192x192", type: "image/png", purpose: "any" },
@@ -42,12 +36,5 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: p("/icon-maskable-192.png"), sizes: "192x192", type: "image/png", purpose: "maskable" },
       { src: p("/icon-maskable-512.png"), sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
-  } as MetadataRoute.Manifest & {
-    share_target: {
-      action: string;
-      method: "GET";
-      enctype: "application/x-www-form-urlencoded";
-      params: { title: string; text: string; url: string };
-    };
   };
 }

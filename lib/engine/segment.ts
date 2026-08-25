@@ -7,7 +7,9 @@ import type { Message, Speaker, Transcript } from "./types";
 
 const WHATSAPP =
   /^\[?(\d{1,2}[/.]\d{1,2}[/.]\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp][Mm])?)\]?\s*[-–]?\s*([^:]{1,40}):\s*(.+)$/;
-const NAMED = /^([A-Za-z][\w .'-]{0,30}):\s*(.+)$/;
+// Unicode names are ordinary names. Keep the grammar deliberately narrower
+// than arbitrary text, but do not force Latin characters or short names.
+const NAMED = /^([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} .’'()_+\-]{0,60}):\s*(.+)$/u;
 
 export function segment(raw: string): Transcript {
   // `\r?\n` misses the CR-ONLY case, and a CR-only paste is not exotic: some
@@ -28,14 +30,17 @@ export function segment(raw: string): Transcript {
   const whatsappCount = lines.filter((l) => WHATSAPP.test(l)).length;
   const namedCount = lines.filter((l) => NAMED.test(l)).length;
 
-  if (whatsappCount >= Math.max(2, lines.length * 0.5)) {
+  // Header recognition is a state machine, not a percentage of physical
+  // lines. Wrapped messages legitimately contain many continuation lines;
+  // requiring half of all lines to be headers fabricated alternating speakers.
+  if (whatsappCount >= 2) {
     format = "whatsapp";
     for (const line of lines) {
       const m = line.match(WHATSAPP);
       if (m) parsed.push({ timestamp: m[1], name: m[2].trim(), text: m[3].trim() });
       else if (parsed.length) parsed[parsed.length - 1].text += ` ${line}`;
     }
-  } else if (namedCount >= Math.max(2, lines.length * 0.5)) {
+  } else if (namedCount >= 2) {
     format = "named";
     for (const line of lines) {
       const m = line.match(NAMED);
@@ -77,11 +82,8 @@ export function segment(raw: string): Transcript {
 /**
  * Parse a WhatsApp-style stamp into epoch ms.
  *
- * Day/month order is genuinely ambiguous across exports and we do not try to
- * guess it: only the DELTA between consecutive messages is ever used, and a
- * delta is unaffected by the ordering as long as the same reading is applied
- * throughout. Anything unparseable returns null and the latency signal simply
- * does not fire — silence is the correct behaviour for a cue we cannot trust.
+ * Day/month order is genuinely ambiguous across exports. Ambiguous or invalid
+ * dates are therefore rejected and latency simply does not fire.
  */
 export function parseStamp(raw?: string): number | null {
   if (!raw) return null;
@@ -89,7 +91,13 @@ export function parseStamp(raw?: string): number | null {
     /(\d{1,2})[/.](\d{1,2})[/.](\d{2,4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?/
   );
   if (!m) return null;
-  const [, d, mo, y, hRaw, min, sec, mer] = m;
+  const [, first, second, y, hRaw, min, sec, mer] = m;
+  const firstNumber = Number(first);
+  const secondNumber = Number(second);
+  if (firstNumber <= 12 && secondNumber <= 12) return null;
+  const day = firstNumber > 12 ? firstNumber : secondNumber;
+  const month = firstNumber > 12 ? secondNumber : firstNumber;
+  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
   let hour = Number(hRaw);
   if (mer) {
     const pm = /p/i.test(mer);
@@ -97,8 +105,12 @@ export function parseStamp(raw?: string): number | null {
     else if (pm) hour += 12;
   }
   const year = Number(y) < 100 ? 2000 + Number(y) : Number(y);
-  const ts = Date.UTC(year, Number(mo) - 1, Number(d), hour, Number(min), Number(sec ?? 0));
-  return Number.isFinite(ts) ? ts : null;
+  if (hour > 23 || Number(min) > 59 || Number(sec ?? 0) > 59) return null;
+  const ts = Date.UTC(year, month - 1, day, hour, Number(min), Number(sec ?? 0));
+  const date = new Date(ts);
+  return Number.isFinite(ts) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    ? ts
+    : null;
 }
 
 /** Re-attribute after the user answers "which one is you?" */

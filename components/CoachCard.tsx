@@ -14,7 +14,7 @@ export default function CoachCard({ locked, state, result, goal, onUnlock, onRun
   return (
     <section id="answer-coach" className="relative overflow-hidden rounded-sbt border-2 border-sbt-gold/55 bg-gradient-to-br from-sbt-gold/[0.18] via-white/90 to-sbt-gold/[0.08] p-5 shadow-soft">
       <header className="mb-3 flex items-center justify-between gap-2">
-        <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sbt-gold-700">✦ Premium · individualized</p><h2 className="mt-0.5 font-display text-xl text-sbt-ink">Your best next move</h2><p className="mt-1 text-[11px] text-sbt-mute">Goal: {COACH_GOALS[goal].label}</p></div>
+        <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-sbt-gold-700">✦ Premium · individualized</p><h2 className="mt-0.5 font-display text-xl text-sbt-ink">Help with your next reply</h2><p className="mt-1 text-xs text-sbt-mute">Goal: {COACH_GOALS[goal].label}</p></div>
         <span className="rounded-full bg-sbt-ink px-2.5 py-1 text-[10px] uppercase tracking-wider text-sbt-paper">Answer Coach</span>
       </header>
 
@@ -22,12 +22,12 @@ export default function CoachCard({ locked, state, result, goal, onUnlock, onRun
         <div className="rounded-sbt border border-sbt-gold/30 bg-white/95 p-4 text-center shadow-soft">
           <p className="font-display text-[15px] text-sbt-ink">Conversation-specific analysis and three editable replies.</p>
           <p className="mt-1 text-[12px] leading-relaxed text-sbt-mute">Coach considers the actual words, your goal, competing explanations, your own contribution, and practical risk.</p>
-          {onUnlock ? <button type="button" onClick={onUnlock} className="mt-3 w-full rounded-sbt bg-sbt-gold px-4 py-2.5 text-sm font-medium text-white">Unlock Answer Coach — $8.99/mo</button> : <Link href="/plans" className="mt-3 block rounded-sbt bg-sbt-gold px-4 py-2.5 text-sm font-medium text-white">See Answer Coach</Link>}
+          {onUnlock ? <button type="button" onClick={onUnlock} className="mt-3 min-h-11 w-full rounded-sbt bg-sbt-gold-700 px-4 py-2.5 text-sm font-medium text-white">Unlock Answer Coach — $8.99/mo</button> : <Link href="/plans" className="mt-3 flex min-h-11 items-center justify-center rounded-sbt bg-sbt-gold-700 px-4 py-2.5 text-sm font-medium text-white">See Answer Coach</Link>}
           <p className="mt-2 text-[10px] uppercase tracking-wider text-sbt-mute">Google Play subscription · cancel anytime</p>
         </div>
       ) : null}
 
-      {!locked && state === "idle" ? <div><p className="text-[13px] leading-relaxed text-sbt-dusk">This sends the conversation to the configured AI provider for one structured pass. Subtext does not store it. Google Play entitlement is verified before the request runs.</p><button type="button" onClick={onRun} className="mt-3 w-full rounded-sbt bg-sbt-ink px-4 py-2.5 text-sm font-medium text-sbt-paper">Generate my coaching</button></div> : null}
+      {!locked && state === "idle" ? <div><p className="text-[13px] leading-relaxed text-sbt-dusk">This sends the conversation, selected context, goal, tone, and optional notes to Subtext and the named AI provider shown at generation time. The Subtext application does not intentionally retain the conversation; the provider processes it under its own terms. Google Play entitlement is verified first.</p><p className="mt-2 text-xs text-sbt-mute">Remove names, phone numbers, addresses, order details, or payment information you do not want transmitted.</p><button type="button" onClick={onRun} className="mt-3 min-h-11 w-full rounded-sbt bg-sbt-ink px-4 py-2.5 text-sm font-medium text-sbt-paper">Send and generate</button></div> : null}
       {!locked && state === "running" ? <div className="flex items-center gap-3 py-4"><div className="h-1 w-32 overflow-hidden rounded-full bg-sbt-linen"><div className="h-full w-1/2 animate-pulse rounded-full bg-sbt-gold" /></div><p className="font-display italic text-sbt-mute">Reading the actual exchange…</p></div> : null}
       {!locked && state === "done" && result && !result.ok ? <div className="rounded-sbt bg-white/75 p-3.5"><p className="text-[13px] leading-relaxed text-sbt-dusk">{result.reason}</p><button type="button" onClick={onRun} className="mt-2 text-xs text-sbt-gold-700 underline underline-offset-2">Try again</button></div> : null}
       {!locked && state === "done" && result?.ok && result.coach ? <CoachResult result={result} /> : null}

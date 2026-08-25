@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { analyze } from "@/lib/engine/analyze";
 import { segment } from "@/lib/engine/segment";
-import type { Analysis, CategoryId, ContextId, FamiliarityId } from "@/lib/engine/types";
+import type { Analysis, CategoryId, ContextId, DistressResult, FamiliarityId } from "@/lib/engine/types";
 import {
   CONTEXTS, CONTEXT_ORDER, FAMILIARITIES, FAMILIARITY_ORDER,
 } from "@/lib/engine/relationship";
@@ -29,13 +29,6 @@ import {
   COACH_GOALS, COACH_TONES,
   type CoachGoalId, type CoachToneId, type PersonalizedCoachResult,
 } from "@/lib/engine/answerCoach";
-import AnswerCoachPrompt from "@/components/AnswerCoachPrompt";
-import ReflectionProgress from "@/components/ReflectionProgress";
-import {
-  readReflectionProgress,
-  recordReflection,
-  type ReflectionSnapshot,
-} from "@/lib/progress";
 import { recordProductEvent } from "@/lib/product-events";
 import {
   OCR_LANGUAGE_OPTIONS,
@@ -91,8 +84,11 @@ export default function Home() {
   const [raw, setRaw] = useState("");
   const [context, setContext] = useState<ContextId>("dating");
   const [familiarity, setFamiliarity] = useState<FamiliarityId>("months");
+  const [contextConfirmed, setContextConfirmed] = useState(false);
+  const [familiarityConfirmed, setFamiliarityConfirmed] = useState(false);
   const [youName, setYouName] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intake");
+  const [distressMode, setDistressMode] = useState<DistressResult["mode"]>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [active, setActive] = useState<CategoryId | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -117,8 +113,6 @@ export default function Home() {
   const [ocrSpeakersConfirmed, setOcrSpeakersConfirmed] = useState(true);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
-  const [showSaveProfile, setShowSaveProfile] = useState(false);
-  const [profileName, setProfileName] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
 
   const [coachGoal, setCoachGoal] = useState<CoachGoalId>("understand");
@@ -126,15 +120,12 @@ export default function Home() {
   const [coachStakes, setCoachStakes] = useState("");
   const [coachState, setCoachState] = useState<"idle" | "running" | "done">("idle");
   const [coachResult, setCoachResult] = useState<PersonalizedCoachResult | null>(null);
-  const [showAnswerCoach, setShowAnswerCoach] = useState(false);
-  const [reflection, setReflection] = useState<ReflectionSnapshot | null>(null);
   const [resolutionMarked, setResolutionMarked] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "shared" | "copied" | "failed">("idle");
 
   useEffect(() => {
     setUsage(readUsage());
     setBilling(readPlayBillingState());
-    setReflection(readReflectionProgress());
     setLocalProfile(readLocalProfile());
 
     const activeRead = readActiveRead();
@@ -142,6 +133,8 @@ export default function Home() {
       setRaw(activeRead.raw);
       setContext(activeRead.context);
       setFamiliarity(activeRead.familiarity);
+      setContextConfirmed(true);
+      setFamiliarityConfirmed(true);
       setYouName(activeRead.youName);
       setFocusName(activeRead.focusName);
       setOtherName(activeRead.otherName);
@@ -152,22 +145,6 @@ export default function Home() {
       setPhase("result");
     }
 
-    // Android/PWA share target: a shared message arrives as ordinary query
-    // parameters and is placed in the paste box. It is never submitted
-    // automatically, preserving the same explicit local-analysis flow.
-    const params = new URLSearchParams(window.location.search);
-    const shared = [params.get("title"), params.get("text"), params.get("url")]
-      .filter((value): value is string => Boolean(value?.trim()))
-      .join("\n")
-      .trim();
-    if (shared) {
-      clearActiveRead();
-      setAnalysis(null);
-      setPhase("intake");
-      setRaw(shared);
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-
     const onBilling = (event: Event) => {
       const next = stateFromBillingEvent(event);
       if (next) setBilling(next);
@@ -176,17 +153,12 @@ export default function Home() {
     return () => window.removeEventListener(PLAY_BILLING_EVENT, onBilling);
   }, []);
 
-  useEffect(() => {
-    if (phase !== "result" || !analysis?.coach.length) return;
-    // Let the user reach the core value—the short read—before offering the
-    // optional paid next step. The prompt remains visible and distinctive,
-    // but no longer covers the result the moment it appears.
-    const timer = window.setTimeout(() => setShowAnswerCoach(true), 5500);
-    return () => window.clearTimeout(timer);
-  }, [phase, analysis]);
-
   // Live preview of the parse, so "which one is you?" is answerable up front.
   const preview = useMemo(() => (raw.trim() ? segment(raw) : null), [raw]);
+  const unsupportedAnalysisLanguage = useMemo(() => {
+    const messageText = preview?.messages.map((message) => message.text).join(" ") ?? "";
+    return (messageText.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Cyrillic}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Thai}]/gu)?.length ?? 0) >= 2;
+  }, [preview]);
   const participantNames = useMemo(
     () => activeParticipants(preview, speakerAssignments, excludedMessages),
     [preview, speakerAssignments, excludedMessages]
@@ -311,8 +283,16 @@ export default function Home() {
     // effect has populated state. Never turn that valid tap into a silent
     // no-op: read the small local counter synchronously as a fallback.
     if (!usage) setUsage(readUsage());
-    if (ocrState === "done" && !ocrSpeakersConfirmed) {
-      setParseWarning("Confirm the detected speakers before reading this screenshot.");
+    if (!contextConfirmed || !familiarityConfirmed) {
+      setParseWarning("Choose the relationship and how long you have known them before reading. Subtext will not guess this context.");
+      return;
+    }
+    if ((ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed) {
+      setParseWarning("Confirm who wrote each message before reading. Subtext will not guess uncertain speakers.");
+      return;
+    }
+    if (unsupportedAnalysisLanguage) {
+      setParseWarning("Subtext can separate names and speakers in many scripts, but its language-pattern analysis is currently validated only for English messages. Review the transcript here; English analysis remains unavailable for this paste.");
       return;
     }
     if (preview && participantNames.length > 1 && !resolveFocusName()) {
@@ -332,6 +312,7 @@ export default function Home() {
         if (result.kind === "distress") {
           // THE HARD RULE: no scores, and the free counter is NOT ticked.
           setAnalysis(null);
+          setDistressMode(result.distress.mode);
           recordProductEvent("distress_guard_shown");
           setPhase("distress");
           return;
@@ -389,6 +370,7 @@ export default function Home() {
   function reset() {
     clearActiveRead();
     setPhase("intake");
+    setDistressMode(null);
     setRaw("");
     setYouName(null);
     setFocusName(null);
@@ -405,11 +387,11 @@ export default function Home() {
     setActive(null);
     setCoachState("idle");
     setCoachResult(null);
-    setShowAnswerCoach(false);
+    setContextConfirmed(false);
+    setFamiliarityConfirmed(false);
     setRunError(null);
     setShareState("idle");
     setSaveState("idle");
-    setShowSaveProfile(false);
     setResolutionMarked(false);
   }
 
@@ -418,6 +400,8 @@ export default function Home() {
     setRaw(sample.text);
     setContext(sample.context);
     setFamiliarity(sample.familiarity);
+    setContextConfirmed(true);
+    setFamiliarityConfirmed(true);
     setYouName(sample.youName);
     setSpeakerAssignments({});
     setExcludedMessages({});
@@ -449,7 +433,12 @@ export default function Home() {
     });
     recordProductEvent("conversation_archived");
     setSaveState("saved");
-    setShowSaveProfile(false);
+  }
+
+  function saveToPrivateArchive() {
+    const profile = localProfile ?? createLocalProfile("Private archive");
+    if (!localProfile) setLocalProfile(profile);
+    saveCurrentRead(profile);
   }
 
   async function shareRead() {
@@ -485,11 +474,11 @@ export default function Home() {
   const unlocked = true;
   const coachUnlocked = billing.entitled;
 
-  if (phase === "distress") return <DistressCard onBack={reset} />;
+  if (phase === "distress") return <DistressCard onBack={reset} mode={distressMode} />;
 
   if (phase === "analyzing") {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3" role="status" aria-live="polite">
         <div className="h-1 w-40 overflow-hidden rounded-full bg-sbt-linen">
           <div className="h-full w-1/2 animate-pulse rounded-full bg-sbt-gold" />
         </div>
@@ -571,7 +560,7 @@ export default function Home() {
             <button
               type="button"
               disabled={saveState === "saved"}
-              onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)}
+              onClick={saveToPrivateArchive}
               className="min-h-11 rounded-sbt border-2 border-sbt-gold/55 bg-sbt-gold/[0.10] px-3 py-2 text-sm font-semibold text-sbt-gold-700 disabled:border-emerald-300 disabled:bg-emerald-50 disabled:text-emerald-800"
             >
               {saveState === "saved" ? "Saved ✓" : "Save to archive"}
@@ -579,7 +568,7 @@ export default function Home() {
             <button type="button" onClick={shareRead} className="min-h-11 rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">
               {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share read"}
             </button>
-            <button type="button" disabled={resolutionMarked} onClick={() => { setReflection(recordReflection()); setResolutionMarked(true); }} className="col-span-2 min-h-11 rounded-sbt border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 disabled:opacity-60">
+            <button type="button" disabled={resolutionMarked} onClick={() => setResolutionMarked(true)} className="col-span-2 min-h-11 rounded-sbt border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 disabled:opacity-60">
               {resolutionMarked ? "Marked complete ✓" : "Done with this read"}
             </button>
           </div>
@@ -589,39 +578,6 @@ export default function Home() {
             </p>
           ) : null}
         </section>
-
-        {showSaveProfile ? (
-          <section className="rounded-sbt border border-sbt-gold/35 bg-sbt-gold/[0.06] p-4">
-            <p className="font-display text-lg text-sbt-ink">Create an optional local profile</p>
-            <p className="mt-1 text-xs leading-relaxed text-sbt-mute">
-              This saves the conversation and result only in this app on this device. There is no login or cloud sync.
-            </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <input
-                value={profileName}
-                onChange={(event) => setProfileName(event.target.value)}
-                placeholder="Your profile name"
-                className="min-h-11 flex-1 rounded-sbt border border-sbt-linen bg-white px-3 text-sm text-sbt-ink outline-none focus:ring-2 focus:ring-sbt-gold/30"
-              />
-              <button
-                type="button"
-                disabled={!profileName.trim()}
-                onClick={() => {
-                  const profile = createLocalProfile(profileName);
-                  setLocalProfile(profile);
-                  setProfileName("");
-                  saveCurrentRead(profile);
-                }}
-                className="rounded-sbt bg-sbt-gold px-4 py-2.5 text-sm font-medium text-white disabled:opacity-40"
-              >
-                Create profile and save
-              </button>
-              <button type="button" onClick={() => setShowSaveProfile(false)} className="px-3 py-2 text-xs text-sbt-mute">
-                Cancel
-              </button>
-            </div>
-          </section>
-        ) : null}
 
         <CoachCard
           locked={!coachUnlocked}
@@ -707,24 +663,9 @@ export default function Home() {
               </ul>
             </details>
 
-            {reflection && reflection.totalReads > 0 ? (
-              <details className="rounded-sbt border border-sbt-linen bg-sbt-linen/30 p-4">
-                <summary className="cursor-pointer text-xs text-sbt-mute">Healthy communication progress</summary>
-                <div className="mt-3"><ReflectionProgress progress={reflection} compact /></div>
-              </details>
-            ) : null}
           </div>
         </div>
         </details>
-        {showAnswerCoach ? (
-          <AnswerCoachPrompt
-            onClose={() => setShowAnswerCoach(false)}
-            onOpen={() => {
-              setShowAnswerCoach(false);
-              window.setTimeout(() => document.getElementById("answer-coach")?.scrollIntoView({ behavior: "smooth", block: "center" }), 30);
-            }}
-          />
-        ) : null}
       </div>
     );
   }
@@ -759,19 +700,19 @@ export default function Home() {
             setCustomParticipants([]);
             setFocusName(null);
             setOcrState("idle");
-            setOcrSpeakersConfirmed(true);
+            setOcrSpeakersConfirmed(false);
             setOcrMessage(null);
             setParseWarning(null);
             setRunError(null);
           }}
           rows={7}
-          placeholder={CONTEXT_PLACEHOLDERS[context]}
+          placeholder={CONTEXT_PLACEHOLDERS[contextConfirmed ? context : "other"]}
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
         />
 
         <div className="mt-2 flex items-center gap-2 text-[11px] text-emerald-900">
           <span aria-hidden="true">🔒</span>
-          <span><strong>Private by default.</strong> Analysis happens on this device and nothing is saved unless you choose to archive it.</span>
+          <span><strong>Private by default.</strong> The free read stays on this device and nothing is saved unless you archive it. Answer Coach sends text only when you explicitly request coaching.</span>
         </div>
 
         {!raw.trim() ? (
@@ -829,7 +770,14 @@ export default function Home() {
           <div className={`mt-3 rounded-sbt border px-3 py-2.5 text-xs leading-relaxed ${ocrState === "error" ? "border-sbt-rose/30 bg-sbt-rose/[0.06] text-sbt-dusk" : "border-sbt-gold/25 bg-sbt-gold/[0.05] text-sbt-dusk"}`}>
             <p>{ocrMessage}</p>
             {ocrState === "reading" ? (
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sbt-linen">
+              <div
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-sbt-linen"
+                role="progressbar"
+                aria-label="Screenshot reading progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={ocrProgress}
+              >
                 <div className="h-full rounded-full bg-sbt-gold transition-[width]" style={{ width: `${ocrProgress}%` }} />
               </div>
             ) : null}
@@ -958,10 +906,10 @@ export default function Home() {
                 );
               })}
             </ul>
-            {ocrState === "done" ? (
+            {ocrState === "done" || preview.format === "alternating" ? (
               <div className="mt-3 rounded-sbt border border-sbt-gold/30 bg-white/70 p-3">
                 <p className="text-xs leading-relaxed text-sbt-dusk">
-                  Check each name above. Add a missing person, then use the name menu on any message that is wrong.
+                  Check each name above. Add a missing person, then use the name menu on any message that is wrong. Bare pasted lines are never assumed to alternate correctly.
                 </p>
                 <button
                   type="button"
@@ -984,6 +932,47 @@ export default function Home() {
           </p>
         ) : null}
 
+        <section className="mt-4 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4" aria-labelledby="context-heading">
+          <h2 id="context-heading" className="font-display text-base text-sbt-ink">Context for an accurate read</h2>
+          <p className="mt-1 text-xs text-sbt-mute">Subtext will not assume this is dating, work, family, or anything else.</p>
+          <div className="mt-4">
+            <p className="text-xs font-medium text-sbt-dusk">Who is this conversation with?</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {CONTEXT_ORDER.filter((id) => ["dating", "partner", "work", "friendship", "family", "other"].includes(id)).map((id) => (
+                <button key={id} type="button" onClick={() => { setContext(id); setContextConfirmed(true); }} aria-pressed={contextConfirmed && context === id} className={`min-h-11 rounded-full border px-3 py-1.5 text-sm transition-colors ${contextConfirmed && context === id ? "border-sbt-ink bg-sbt-ink text-sbt-paper" : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"}`}>
+                  {CONTEXTS[id].label}
+                </button>
+              ))}
+            </div>
+            <details className="mt-2 rounded-sbt border border-sbt-linen bg-white/50 p-2.5">
+              <summary className="cursor-pointer text-sm text-sbt-dusk">More relationship types</summary>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {CONTEXT_ORDER.filter((id) => !["dating", "partner", "work", "friendship", "family", "other"].includes(id)).map((id) => (
+                  <button key={id} type="button" onClick={() => { setContext(id); setContextConfirmed(true); }} aria-pressed={contextConfirmed && context === id} className={`min-h-11 rounded-full border px-3 py-1.5 text-sm transition-colors ${contextConfirmed && context === id ? "border-sbt-ink bg-sbt-ink text-sbt-paper" : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"}`}>
+                    {CONTEXTS[id].label}
+                  </button>
+                ))}
+              </div>
+            </details>
+          </div>
+          <div className="mt-5">
+            <p className="text-xs font-medium text-sbt-dusk">How long have you known them?</p>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+              {FAMILIARITY_ORDER.map((id) => (
+                <button key={id} type="button" onClick={() => { setFamiliarity(id); setFamiliarityConfirmed(true); }} aria-pressed={familiarityConfirmed && familiarity === id} className={`min-h-11 rounded-sbt border px-2.5 py-2 text-[13px] leading-tight transition-colors ${familiarityConfirmed && familiarity === id ? "border-sbt-gold bg-sbt-gold/15 font-medium text-sbt-ink" : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"}`}>
+                  {FAMILIARITIES[id].label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {unsupportedAnalysisLanguage ? (
+          <p role="status" className="mt-3 rounded-sbt border border-sbt-amber/35 bg-sbt-amber/10 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
+            Speaker separation supports these names and characters. Language-pattern analysis is currently validated only for English messages, so Subtext will not generate a potentially misleading reading for this paste.
+          </p>
+        ) : null}
+
         {parseWarning ? (
           <p role="alert" className="mt-3 rounded-sbt border border-sbt-amber/35 bg-sbt-amber/10 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
             {parseWarning}
@@ -1000,36 +989,16 @@ export default function Home() {
           <button
             type="button"
             onClick={run}
-            disabled={!raw.trim() || (ocrState === "done" && !ocrSpeakersConfirmed)}
-            className="min-h-12 flex-1 rounded-sbt bg-sbt-gold px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sbt-gold-700 disabled:opacity-40 sm:flex-none"
+            disabled={!raw.trim() || unsupportedAnalysisLanguage || !contextConfirmed || !familiarityConfirmed || ((ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed)}
+            className="min-h-12 flex-1 rounded-sbt bg-sbt-gold-700 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sbt-ink disabled:opacity-40 sm:flex-none"
           >
-            {ocrState === "done" && !ocrSpeakersConfirmed ? "Confirm speakers first" : "Read this conversation"}
+            {unsupportedAnalysisLanguage ? "English analysis only" : !contextConfirmed || !familiarityConfirmed ? "Choose context first" : (ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed ? "Confirm speakers first" : "Read this conversation"}
           </button>
           <p className="text-xs text-sbt-mute">Conversation reader · free</p>
         </div>
 
-        <details className="mt-3 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
-          <summary className="cursor-pointer font-display text-[15px] text-sbt-ink">Optional details <span className="font-body text-[12px] text-sbt-mute">— improve the read</span></summary>
-          <div className="mt-4">
-            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">Relationship</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {CONTEXT_ORDER.map((id) => (
-                <button key={id} type="button" onClick={() => setContext(id)} aria-pressed={context === id} className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${context === id ? "border-sbt-ink bg-sbt-ink text-sbt-paper" : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"}`}>
-                  {CONTEXTS[id].label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="mt-5">
-            <p className="text-[11px] uppercase tracking-wider text-sbt-mute">How long have you known this person?</p>
-            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-              {FAMILIARITY_ORDER.map((id) => (
-                <button key={id} type="button" onClick={() => setFamiliarity(id)} aria-pressed={familiarity === id} className={`rounded-sbt border px-2.5 py-2 text-[13px] leading-tight transition-colors ${familiarity === id ? "border-sbt-gold bg-sbt-gold/15 font-medium text-sbt-ink" : "border-sbt-linen bg-white/50 text-sbt-dusk hover:border-sbt-gold/60"}`}>
-                  {FAMILIARITIES[id].label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <details className="mt-3 rounded-sbt border border-sbt-linen bg-white/50 p-4">
+          <summary className="cursor-pointer font-display text-[15px] text-sbt-ink">Answer Coach preferences <span className="font-body text-[12px] text-sbt-mute">— optional paid feature</span></summary>
           <div className="mt-5 border-t border-sbt-gold/15 pt-4">
             <p className="text-[11px] uppercase tracking-wider text-sbt-mute">What do you want from Answer Coach?</p>
             <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
@@ -1056,8 +1025,6 @@ export default function Home() {
           </div>
         </details>
       </section>
-
-      {reflection && reflection.totalReads > 0 ? <ReflectionProgress progress={reflection} compact /> : null}
 
       <section>
         <h2 className="font-display text-xl text-sbt-ink">See it in action</h2>

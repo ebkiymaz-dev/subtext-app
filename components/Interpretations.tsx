@@ -10,7 +10,6 @@ import type { Interpretation } from "@/lib/engine/types";
 export default function Interpretations({ items }: { items: Interpretation[] }) {
   const charitable = items.find((item) => item.charitable) ?? items[0];
   const alternatives = items.filter((item) => item !== charitable);
-  const mostSupported = items.reduce<Interpretation | undefined>((best, item) => !best || item.weight > best.weight ? item : best, undefined);
 
   const card = (it: Interpretation) => (
     <article
@@ -21,7 +20,7 @@ export default function Interpretations({ items }: { items: Interpretation[] }) 
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="font-display text-[15px] text-sbt-ink">{it.title}</h3>
         <span className={`text-[10px] font-semibold uppercase tracking-wider ${it.charitable ? "text-sbt-teal" : "text-sbt-mute"}`}>
-          {it === mostSupported ? "Most supported" : "Plausible alternative"}
+          {it.charitable ? "Ordinary possibility" : "Another possibility"}
         </span>
       </div>
       {it.charitable ? (

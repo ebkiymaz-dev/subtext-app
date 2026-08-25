@@ -124,6 +124,7 @@ export function looksLikeSenderName(text: string): boolean {
 export function looksLikeMessage(text: string, confidence: number, sitsOnBubble: boolean): boolean {
   const cleaned = text.replace(/\s+/g, " ").trim();
   if (!sitsOnBubble || confidence < 42 || cleaned.length < 2 || SYSTEM_LINE.test(cleaned)) return false;
+  if (confidence >= 66 && /^(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uFE0F|\u200D|\s)+$/u.test(cleaned)) return true;
   const letters = (cleaned.match(/\p{L}/gu) ?? []).length;
   const digits = (cleaned.match(/\d/g) ?? []).length;
   const symbols = (cleaned.match(/[^\p{L}\p{N}\s.,!?'’“”:;()@#%&+\-/]/gu) ?? []).length;
@@ -258,12 +259,12 @@ export function chooseScreenshotSender(
 ): string {
   if (explicitSender) {
     lastNamedSender.set(side, explicitSender);
+    colourSpeakers.set(`${side}-${bubbleKey}`, explicitSender);
     return explicitSender;
   }
   if (side === "right") return "You";
-  const continuingSender = lastNamedSender.get(side);
-  if (continuingSender) return continuingSender;
   const key = `${side}-${bubbleKey}`;
+  if (colourSpeakers.has(key)) return colourSpeakers.get(key)!;
   if (!colourSpeakers.has(key)) colourSpeakers.set(key, `Unclear speaker ${colourSpeakers.size + 1}`);
   return colourSpeakers.get(key)!;
 }

@@ -86,16 +86,13 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         settings.setAllowContentAccess(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        // Keep the responsive site locked to the device viewport. Some Android
-        // WebView versions retain a focused form field's temporary page scale
-        // after client-side navigation, which leaves the next screen clipped
-        // horizontally. System font scaling and Android magnification remain
-        // available for accessibility.
+        // Keep the responsive site fitted to the viewport while respecting
+        // the user's Android font scale and allowing pinch zoom.
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(false);
-        settings.setTextZoom(100);
-        settings.setSupportZoom(false);
-        settings.setBuiltInZoomControls(false);
+        settings.setTextZoom(Math.round(getResources().getConfiguration().fontScale * 100));
+        settings.setSupportZoom(true);
+        settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setUserAgentString(settings.getUserAgentString() + " SubtextAndroid/1.5");
         WebView.setWebContentsDebuggingEnabled(false);

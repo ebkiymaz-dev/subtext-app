@@ -1099,9 +1099,9 @@ const ALL_BUILDERS: Builder[] = [
         percent: pct(value),
         read:
           value >= 0.6
-            ? `Their side offers ${vague.length} unbounded commitment${vague.length > 1 ? "s" : ""} and ${concrete.length} concrete one${concrete.length === 1 ? "" : "s"}. When someone intends to do a thing they usually attach a time to it; when they are keeping the option open they usually do not.`
+            ? `Their side offers ${vague.length} unbounded commitment${vague.length > 1 ? "s" : ""} and ${concrete.length} concrete one${concrete.length === 1 ? "" : "s"}. Specific details make a commitment easier to verify; vagueness alone does not establish intent.`
             : concrete.length
-              ? `Their messages attach real detail — ${concrete.length} concrete reference${concrete.length > 1 ? "s" : ""} to a day, time or figure. Specificity is the cheapest honest signal there is.`
+              ? `Their messages attach real detail — ${concrete.length} concrete reference${concrete.length > 1 ? "s" : ""} to a day, time or figure. That makes the commitment easier to verify, without proving motive.`
               : "Nothing concrete is committed to on their side.",
         tier: "on-device",
         method: "ratio of unbounded deferrals to named days, clock times and figures",

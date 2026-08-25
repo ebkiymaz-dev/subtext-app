@@ -41,7 +41,7 @@ export default function PrivacyPage() {
         <p>
           In the Android app, Answer Coach is an optional Google Play subscription. Google Play
           handles checkout, payment details, renewals, cancellation, and purchase restoration.
-          feature; it does not receive or store your card or bank details. When you request coaching,
+          Subtext does not receive or store your card or bank details. When you request coaching,
           the Android app supplies a purchase token to the Subtext server. The server verifies it with
           Google Play before allowing the model request. Subtext does not use that token for advertising
           or include it in application logs.

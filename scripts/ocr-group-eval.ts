@@ -1,6 +1,7 @@
 import { activeParticipants, focusedTranscript, participantStats } from "../lib/group-chat";
 import { chooseScreenshotSender, detectColouredBubbleBoxes, groupScreenshotParagraphs, looksLikeMessage, looksLikeSenderName, normaliseOcrLine, screenshotCanvasSize, trainedDataFor } from "../lib/screenshot-ocr";
-import { segment } from "../lib/engine/segment";
+import { parseStamp, segment } from "../lib/engine/segment";
+import { screenForDistress } from "../lib/engine/distress";
 
 const assert = (condition: unknown, message: string) => {
   if (!condition) throw new Error(message);
@@ -11,6 +12,7 @@ for (const debris of ["N= ED", "14:45 © “Zr 1 °", "TB8231 x Efe", "[3", "Ck 
 }
 assert(looksLikeMessage("Okay I will be around. 15.05", 82, true), "ordinary message was rejected");
 assert(looksLikeMessage("OK", 82, true), "confident short reply was rejected");
+assert(looksLikeMessage("👍", 82, true), "emoji-only bubble was rejected");
 assert(normaliseOcrLine("| can bring the tickets.") === "I can bring the tickets.", "capital-I OCR artifact was not corrected");
 assert(!looksLikeMessage("OK", 82, false), "text outside a bubble was accepted");
 assert(looksLikeSenderName("Efe"), "simple sender name was rejected");
@@ -50,7 +52,9 @@ const colourSpeakers = new Map<string, string>();
 assert(chooseScreenshotSender("right", undefined, "blue", lastNamed, colourSpeakers) === "You", "right-side screenshot bubble was not assigned to the user");
 assert(chooseScreenshotSender("left", "Мария", "grey", lastNamed, colourSpeakers) === "Мария", "explicit Unicode group sender was lost");
 assert(chooseScreenshotSender("left", undefined, "grey", lastNamed, colourSpeakers) === "Мария", "consecutive group bubble did not continue the last named sender");
+assert(chooseScreenshotSender("left", undefined, "green", lastNamed, colourSpeakers).startsWith("Unclear speaker"), "different bubble colour was silently merged into the prior named sender");
 lastNamed.clear();
+colourSpeakers.clear();
 assert(chooseScreenshotSender("left", undefined, "grey", lastNamed, colourSpeakers).startsWith("Unclear speaker"), "uncertain group sender was presented as a known person");
 
 const fragments = groupScreenshotParagraphs([
@@ -83,4 +87,19 @@ const stats = participantStats(group, {}, {});
 assert(stats.reduce((sum, item) => sum + item.messages, 0) === 6, "group message totals drifted");
 assert(stats.reduce((sum, item) => sum + item.share, 0) >= 99, "group shares do not cover the conversation");
 
-console.log("ocr-group-eval: debris rejection and unlimited participant focus passed");
+const multiline = segment("Me: long message\ncontinued line one\ncontinued line two\nAlex: reply\ncontinued line three\ncontinued line four");
+assert(multiline.format === "named", "multiline named paste fell back to alternating");
+assert(multiline.messages.length === 2, `multiline paste fabricated ${multiline.messages.length} messages`);
+assert(multiline.messages[0].text.includes("continued line two"), "first multiline message lost its continuation");
+assert(multiline.messages[1].text.includes("continued line four"), "second multiline message lost its continuation");
+
+for (const paste of ["张伟: 我晚点到。\n李: 好的。", "Алексей: Буду позже.\nМария: Хорошо.", "فاطمة: سأتأخر.\nعلي: حسنا."]) {
+  const unicode = segment(paste);
+  assert(unicode.format === "named" && unicode.messages.length === 2 && unicode.names.length === 2, `Unicode named paste was misattributed: ${paste}`);
+}
+
+assert(parseStamp("4/3/2026 10:00") === null, "ambiguous timestamp was treated as reliable latency");
+assert(parseStamp("31/02/2026 10:00") === null, "impossible date was normalized instead of rejected");
+assert(screenForDistress("Please stop contacting me.\nYou will regret acting like this.").mode === "interpersonal_danger", "threat/no-contact case did not reach the safety stop");
+
+console.log("ocr-group-eval: attribution, Unicode, safety, and unlimited participant focus passed");

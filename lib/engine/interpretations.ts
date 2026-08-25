@@ -159,20 +159,20 @@ export function buildInterpretations(
   candidates.push({
     id: "charitable",
     charitable: true,
-    title: s.softClose ? "They were going to bed" : "The straightforward read",
+    title: s.softClose ? "A routine sign-off is one possibility" : "A literal reading remains plausible",
     body: p.transactional
       ? `This is a ${p.contextLabel.toLowerCase()} exchange behaving like one. Brevity, formality and a clean sign-off are the register the situation prescribes, and reading warmth into their presence or absence here is reading the wrong variable.`
       : p.deviation <= 0.5
         ? `You have known them ${p.familiarityLabel.toLowerCase()}. People are careful and slightly formal with people they have just met, and almost everything below is consistent with nothing more than that.`
         : s.softClose
-      ? "A sign-off at the end of a night is the most ordinary thing in text. Someone who is tired, or in bed, or holding a phone in one hand answers warmly and briefly and means nothing by the brevity. Nothing here rules that out, and it is the single most likely explanation of any individual short goodbye."
+      ? "A short sign-off can be completely ordinary. Tiredness, device use, writing style, or limited time can all produce this shape, and the excerpt does not rule those explanations out."
       : stress >= 35
-        ? "They are carrying something unrelated to you. Strain-associated language shows up across their messages regardless of topic, which is what capacity looks like when it runs out — not what disinterest looks like."
+        ? "Strain-associated wording appears across their messages. It may reflect limited capacity, but this excerpt cannot establish the cause or distinguish it from disinterest."
         : engagement >= 50
-          ? "They mean what they wrote. The exchange is broadly reciprocal, and the ambiguity you are reading may be the ordinary compression of text rather than a signal."
-          : "They are short because they are busy or writing on a phone, and the brevity carries no message beyond itself. Terse text is the weakest evidence there is.",
+          ? "A literal reading remains plausible. The exchange is broadly reciprocal, and some ambiguity may come from the ordinary compression of text."
+          : "Brevity may reflect busyness, device use, writing style, or unseen context. Short text alone is weak evidence.",
     suggestedNext: s.softClose
-      ? "Do nothing tonight. If this reading is right, tomorrow looks completely normal and you will have lost nothing by waiting to find out."
+      ? "If there is no practical deadline or safety concern, one option is to wait and see whether the conversation resumes normally."
       : "Say the plain thing: “Hey — no pressure either way, just wanted to check we're good.” It costs nothing and resolves most of this.",
     weight: s.softClose ? 30 : 30,
     quotes: closingQuote ? [closingQuote] : [],
@@ -183,9 +183,9 @@ export function buildInterpretations(
     candidates.push({
       id: "polite_close",
       title: "The politeness is doing the work of a step back",
-      body: `You offered ${BID_LABEL[softBid.kind]} and what came back acknowledged it without taking it anywhere, in a register one notch more formal than the one you used, and then ended the conversation. Any one of those is nothing. Together they are the shape a soft no takes in text — not a rejection anyone would recognise as one, including the person writing it.`,
+      body: `You offered ${BID_LABEL[softBid.kind]} and the reply acknowledged it without adding a new topic, used a more formal register, and ended the exchange. Together, those cues can be consistent with a polite close; they do not establish rejection or motive.`,
       suggestedNext:
-        "Let the next opening be theirs. You have just given them something easy to pick up; whether they pick it up tomorrow tells you far more than another message from you would.",
+        "If there is no practical deadline, you could pause and decide whether you want to leave space for them to reopen the conversation. This is an option, not a test of their feelings.",
       weight: Math.round(28 * clampW(p.registerWeight)),
       quotes: [quoteOf(t, softBid.messageId), quoteOf(t, softBid.responseMessageId)].filter(Boolean),
     });
@@ -233,10 +233,10 @@ export function buildInterpretations(
   if (fade >= 30 || (engagement < 40 && context === "dating" && s.turns.length > 4)) {
     candidates.push({
       id: "fading",
-      title: "Interest is drifting",
-      body: "Deferrals appear without dates attached and reciprocal asking has thinned. This is the shape a fade takes in text — gradual, polite, and rarely stated.",
+      title: "Momentum may be decreasing",
+      body: "Deferrals appear without dates attached and reciprocal asking has thinned. This can happen when momentum drops, but busyness or uncertainty can look the same.",
       suggestedNext:
-        "Stop carrying the thread. Match their energy for a beat and let them initiate next; what happens next tells you more than another message will.",
+        "One option is to stop adding messages for now and decide what level of effort feels right for you. A pause can create space without turning the interaction into a test.",
       weight: Math.round(22 * clampW(p.reciprocityWeight)),
       quotes: cats
         .find((c) => c.id === "fade_markers")
@@ -252,7 +252,7 @@ export function buildInterpretations(
       title: "You are being moved toward a decision",
       body: "Obligation, urgency or consensus framing is present. Whatever their intent, the effect of that phrasing is to compress your time to think.",
       suggestedNext:
-        "Buy back the time explicitly: “I want to give you a real answer — I'll come back to you tomorrow.” A reasonable ask survives a day.",
+        "If it is safe and there is no genuine deadline, you can say: “I want to give you a considered answer. I’ll come back to you tomorrow.” Verify any claimed deadline rather than assuming it is flexible.",
       weight: 26,
       quotes: cats
         .find((c) => c.id === "pressure")
@@ -269,8 +269,8 @@ export function buildInterpretations(
       title: "The register has moved, and the content hasn't",
       body:
         p.deviation >= 1.15
-          ? `Nothing they have written is unkind. It is also written in a register that ${p.familiarityLabel.toLowerCase()} of history had already moved past — the familiar form was right there and was not taken. When people want less closeness they rarely say so; they raise the register and let it do the work.`
-          : "Nothing they have written is unkind, and the formality gap between the two of you is wide enough to see. When people want less closeness they rarely say so; they raise the register and let it do the work.",
+          ? `Nothing they have written is unkind. It is also more formal than this relationship history would normally suggest. Greater formality can accompany distance, but context, mood, audience, or habit can produce the same shift.`
+          : "Nothing they have written is unkind, and the formality gap between the two of you is visible. Greater formality can accompany distance, but context, mood, audience, or habit can produce the same pattern.",
       suggestedNext:
         "Match their register once and see what happens. If the gap closes on its own, it was a mood. If it holds, it is information.",
       weight: Math.round(20 * clampW(p.registerWeight)),
@@ -318,7 +318,7 @@ export function buildInterpretations(
   if (attachment >= 45 || affectWarm) {
     candidates.push({
       id: "invested",
-      title: "They are more invested than the tone suggests",
+      title: "Future-oriented language is present",
       body: "Shared-frame language and concrete future references are present even where the register is flat. Warmth and terseness coexist more often than people expect.",
       suggestedNext:
         "Take the future reference seriously and make it specific — put a day on it and see if it holds.",
@@ -329,7 +329,7 @@ export function buildInterpretations(
   if (stress >= 40) {
     candidates.push({
       id: "strained",
-      title: "They are at capacity",
+      title: "Strain-associated language is present",
       body: "Absolutist and strain-associated language recurs across messages. When someone is depleted, warmth is usually the first thing that goes and it is rarely aimed at anyone.",
       suggestedNext: "Lower the ask. Offer something with no obligation attached and leave the door open.",
       weight: 20,
@@ -590,14 +590,14 @@ export function buildCoach(
       mode: "clear",
       action: "You could let the next move be theirs.",
       reasoning:
-        "You have just put something warm on the table and it was received rather than picked up. Adding another message on top of it makes the next reply a response to your persistence instead of to the compliment — which destroys the only clean signal you were going to get. Waiting is not a tactic here; it is the only way to actually find out.",
+        "You offered something warm and it was acknowledged without being continued. If there is no practical deadline, one option is to pause so you can decide what you want without adding pressure.",
       evidenceMessageId: bid?.responseMessageId ?? undefined,
     });
     out.push({
       mode: "clear",
       action: "If you do write again, make it about something other than the compliment.",
       reasoning:
-        "Re-raising it asks them to grade your feelings, which almost nobody answers honestly. A neutral opening on a different subject gives them a way back in that costs them nothing to take.",
+        "Re-raising it may put pressure on both sides. If you want to continue, a neutral topic is one option; asking directly and respectfully is another. Choose the approach that fits your goal and safety.",
     });
   }
 
@@ -626,7 +626,7 @@ export function buildCoach(
     out.push({
       action: "You could stop initiating for a stretch and let them come to you.",
       reasoning:
-        "Right now you are supplying most of the momentum, which makes it impossible to tell how much they would supply on their own. Pausing is a measurement, not a punishment.",
+        "Right now you are supplying most of the momentum. A pause may reduce pressure and give you space to decide what level of effort feels sustainable; it should not be used as a punishment or experiment.",
       evidenceMessageId: engagementCat.evidence[0]?.messageId,
     });
   }

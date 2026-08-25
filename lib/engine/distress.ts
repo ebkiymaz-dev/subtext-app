@@ -67,15 +67,47 @@ const SUPPORTING = [
   "empty inside",
 ];
 
+/** Explicit threats, stalking, extortion, coercion, or ignored no-contact boundaries. */
+const INTERPERSONAL_DANGER = [
+  "i will kill you",
+  "i'll kill you",
+  "im going to kill you",
+  "i'm going to kill you",
+  "you will regret",
+  "you'll regret",
+  "watch your back",
+  "i know where you live",
+  "i'm coming for you",
+  "im coming for you",
+  "you can't hide",
+  "you cant hide",
+  "i won't take no",
+  "i wont take no",
+  "send the money or",
+  "pay me or else",
+  "i will post the photos",
+  "i'll post the photos",
+  "stop contacting me",
+  "do not contact me again",
+  "leave me alone",
+];
+
 export function screenForDistress(text: string): DistressResult {
   const t = ` ${text.toLowerCase().replace(/[’']/g, "'")} `;
   const acuteHits = ACUTE.filter((p) => t.includes(p));
   const supportHits = SUPPORTING.filter((p) => t.includes(p));
+  const dangerHits = INTERPERSONAL_DANGER.filter((p) => t.includes(p));
 
   // One explicit marker is enough. Two supporting markers together are enough.
-  const triggered = acuteHits.length > 0 || supportHits.length >= 2;
+  const selfHarm = acuteHits.length > 0 || supportHits.length >= 2;
+  const interpersonalDanger = dangerHits.length > 0;
+  const triggered = selfHarm || interpersonalDanger;
 
-  return { triggered, markers: [...acuteHits, ...supportHits] };
+  return {
+    triggered,
+    mode: selfHarm ? "self_harm" : interpersonalDanger ? "interpersonal_danger" : null,
+    markers: [...acuteHits, ...supportHits, ...dangerHits],
+  };
 }
 
 /**

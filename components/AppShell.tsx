@@ -38,6 +38,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="hidden items-center gap-1 text-sm sm:flex">
             <Link
               href="/"
+              aria-current={pathname === "/" ? "page" : undefined}
               className={`rounded-sbt px-3 py-1.5 transition-colors ${
                 pathname === "/" ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
               }`}
@@ -46,6 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
             <Link
               href="/archive"
+              aria-current={pathname.startsWith("/archive") ? "page" : undefined}
               className={`rounded-sbt px-3 py-1.5 transition-colors ${
                 pathname.startsWith("/archive") ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
               }`}
@@ -54,6 +56,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
             <Link
               href="/plans"
+              aria-current={pathname === "/plans" ? "page" : undefined}
               className={`rounded-sbt px-3 py-1.5 transition-colors ${
                 pathname === "/plans" ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
               }`}
@@ -75,6 +78,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         <Link
           href="/"
+          aria-current={pathname === "/" ? "page" : undefined}
           className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname === "/" ? "text-sbt-gold-700" : "text-sbt-mute"}`}
         >
           <span aria-hidden className="text-base">◉</span>
@@ -82,6 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link
           href="/archive"
+          aria-current={pathname.startsWith("/archive") ? "page" : undefined}
           className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname.startsWith("/archive") ? "text-sbt-gold-700" : "text-sbt-mute"}`}
         >
           <span aria-hidden className="text-base">▣</span>
@@ -89,6 +94,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link
           href="/plans"
+          aria-current={pathname.startsWith("/plans") ? "page" : undefined}
           className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname.startsWith("/plans") ? "text-sbt-gold-700" : "text-sbt-mute"}`}
         >
           <span aria-hidden className="text-base">✦</span>

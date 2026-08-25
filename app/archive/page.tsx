@@ -30,7 +30,7 @@ export default function ArchivePage() {
     <aside className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sbt border border-sbt-gold/35 bg-sbt-gold/[0.07] p-4">
       <div>
         <p className="text-sm font-semibold text-sbt-ink">Your current analysis is still open</p>
-        <p className="mt-0.5 text-xs text-sbt-mute">Return to it without losing the result, then use Save to archive.</p>
+        <p className="mt-0.5 text-xs text-sbt-mute">Return to it without losing the result.</p>
       </div>
       <Link href="/" className="rounded-sbt bg-sbt-ink px-4 py-2.5 text-sm font-semibold text-sbt-paper">
         Return to current read
@@ -67,7 +67,7 @@ export default function ArchivePage() {
               setProfile(next);
               setName("");
             }}
-            className="mt-4 w-full rounded-sbt bg-sbt-gold px-4 py-3 text-sm font-medium text-white disabled:opacity-40"
+            className="mt-4 min-h-11 w-full rounded-sbt bg-sbt-gold-700 px-4 py-3 text-sm font-medium text-white disabled:opacity-40"
           >
             Create private profile
           </button>
@@ -81,9 +81,11 @@ export default function ArchivePage() {
       {activeReadBanner}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-sbt-gold-700">{profile.name}&apos;s private archive</p>
+          <p className="text-[10px] uppercase tracking-widest text-sbt-gold-700">
+            {profile.name === "Private archive" ? "Private archive" : `${profile.name}'s private archive`}
+          </p>
           <h1 className="mt-1 font-display text-3xl text-sbt-ink">Saved conversations</h1>
-          <p className="mt-2 text-sm text-sbt-mute">Stored only on this device. Nothing is synced or uploaded.</p>
+          <p className="mt-2 text-sm text-sbt-mute">Stored locally by Subtext on this device. Subtext does not sync or upload the archive.</p>
         </div>
         <button
           type="button"

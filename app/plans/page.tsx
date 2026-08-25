@@ -66,7 +66,7 @@ export default function PlansPage() {
           </div>
         ) : billing.android ? (
           <div className="mt-5 space-y-3">
-            <button type="button" disabled={billing.status === "loading"} onClick={() => requestPlayPurchase()} className="w-full rounded-sbt bg-sbt-gold px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+            <button type="button" disabled={billing.status === "loading"} onClick={() => requestPlayPurchase()} className="min-h-11 w-full rounded-sbt bg-sbt-gold-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
               {billing.status === "loading" ? "Connecting to Google Play…" : `Start Answer Coach — ${price}`}
             </button>
             <button type="button" onClick={() => restorePlayPurchases()} className="w-full px-4 py-2 text-sm text-sbt-gold-700 underline underline-offset-2">

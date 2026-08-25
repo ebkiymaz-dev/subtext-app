@@ -2,7 +2,8 @@
 // and no caching of anything you paste. A conversation enters local storage
 // only when the user explicitly saves it to their optional private archive.
 const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
-const CACHE = "subtext-shell-v27";
+const CACHE_PREFIX = "subtext-shell-";
+const CACHE = CACHE_PREFIX + "v28";
 const SHELL = [
   BASE + "/",
   BASE + "/plans",
@@ -33,7 +34,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -41,16 +42,20 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET" || !request.url.startsWith(self.location.origin)) return;
+  const url = new URL(request.url);
+  if (url.search || url.pathname.includes("/api/")) return;
   const networkRequest = request.mode === "navigate"
     ? new Request(request, { cache: "reload" })
     : request;
   event.respondWith(
     fetch(networkRequest)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
+        if (res.ok && (request.mode === "navigate" || SHELL.includes(url.pathname))) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(request).then((r) => r || caches.match(BASE + "/")))
+      .catch(() => caches.match(request).then((r) => r || (request.mode === "navigate" ? caches.match(BASE + "/") : Response.error())))
   );
 });

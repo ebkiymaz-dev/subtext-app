@@ -259,6 +259,7 @@ export interface Analysis {
 /** The distress path is NOT a score. It is an override that replaces analysis. */
 export interface DistressResult {
   triggered: boolean;
+  mode: "self_harm" | "interpersonal_danger" | null;
   /** the matched markers — never shown as a percentage, never gamified */
   markers: string[];
 }
