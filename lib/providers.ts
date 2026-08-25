@@ -110,8 +110,8 @@ const LLM_SPECS: Record<
     free: true,
     limit: "Free tier, no card. Real limits are per-project and not guaranteed.",
     privacy:
-      "FREE TIER ONLY: Google may use prompts and responses to improve its products, " +
-      "and human reviewers may see them. Strongly inadvisable for private messages.",
+      "Paid Gemini API data terms: prompts and responses are not used to improve Google's products; " +
+      "limited abuse-monitoring retention can still apply.",
   },
   ollama: {
     label: "Ollama (local)",
@@ -141,7 +141,23 @@ function llmIsConfigured(name: string): boolean {
     return Boolean(env("OLLAMA_HOST")) || env("LLM_PROVIDER").toLowerCase() === "ollama";
   }
   const spec = LLM_SPECS[name];
-  return Boolean(spec?.keyEnv && env(spec.keyEnv));
+  const hasCredentials = Boolean(spec?.keyEnv && env(spec.keyEnv));
+  if (!hasCredentials) return false;
+  if (env("ANSWER_COACH_PROVIDER_TERMS_CONFIRMED").toLowerCase() !== "true") return false;
+  if (name === "gemini" && env("GEMINI_PAID_DATA_TERMS_CONFIRMED").toLowerCase() !== "true") return false;
+  return true;
+}
+
+function coachMissingConfiguration(provider: string, spec?: { keyEnv: string }): string[] {
+  const missing: string[] = [];
+  if (spec?.keyEnv && !env(spec.keyEnv)) missing.push(spec.keyEnv);
+  if (provider !== "ollama" && env("ANSWER_COACH_PROVIDER_TERMS_CONFIRMED").toLowerCase() !== "true") {
+    missing.push("ANSWER_COACH_PROVIDER_TERMS_CONFIRMED=true");
+  }
+  if (provider === "gemini" && env("GEMINI_PAID_DATA_TERMS_CONFIRMED").toLowerCase() !== "true") {
+    missing.push("GEMINI_PAID_DATA_TERMS_CONFIRMED=true");
+  }
+  return missing;
 }
 
 export function resolveLlmProvider(): string {
@@ -227,9 +243,7 @@ export function resolveCoachProvider(): CoachProvider {
     missingEnv:
       provider === "claude"
         ? ["GEMINI_API_KEY", "GROQ_API_KEY", "OLLAMA_HOST (Anthropic's API is not chat-completions shaped)"]
-        : configured || !spec?.keyEnv
-          ? []
-          : [spec.keyEnv],
+        : configured ? [] : coachMissingConfiguration(provider, spec),
     free: spec?.free ?? false,
     privacy: spec?.privacy ?? "",
   };
@@ -262,7 +276,7 @@ export function capabilityReport(): CapabilityReport {
         "and is the recommended setup for Subtext.",
     connect: configured ? null : OLLAMA,
     alternatives: configured ? [] : [GROQ],
-    missingEnv: configured || !spec.keyEnv ? [] : [spec.keyEnv],
+    missingEnv: configured ? [] : coachMissingConfiguration(provider, spec),
   };
 
   return {

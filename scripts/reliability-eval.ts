@@ -80,7 +80,8 @@ function verifySecurityAndRecoverySeams(): void {
   for (const callback of ["onReceivedError", "onReceivedHttpError", "onReceivedSslError", "onRenderProcessGone"]) {
     assert(mainActivity.includes(callback), `missing native recovery callback: ${callback}`);
   }
-  assert(coachRoute.includes("runSingleFlight"));
+  assert(coachRoute.includes("runControlledIdempotent"));
+  assert(coachRoute.includes("consumeRequestLimit"));
   assert(coachRoute.includes("fetchWithTimeout"));
 }
 

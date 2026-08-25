@@ -10,7 +10,12 @@ import type { ContextId, FamiliarityId } from "@/lib/engine/types";
 import { resolveCoachProvider } from "@/lib/providers";
 import { verifyPlayEntitlement, type EntitlementProof } from "@/lib/server/playEntitlement";
 import { fetchWithTimeout } from "@/lib/server/boundedFetch";
-import { consumeRequestLimit, runSingleFlight } from "@/lib/server/requestControl";
+import {
+  consumeRequestLimit,
+  DuplicateRequestError,
+  RequestControlUnavailableError,
+  runControlledIdempotent,
+} from "@/lib/server/requestControl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +45,9 @@ export async function POST(request: Request) {
     || request.headers.get("x-real-ip")?.trim()
     || "unknown";
   const precheckKey = createHash("sha256").update(forwarded).digest("hex");
-  const precheck = consumeRequestLimit(`precheck:${precheckKey}`, MAX_PRECHECKS, WINDOW_MS);
+  let precheck;
+  try { precheck = await consumeRequestLimit("answer-coach-precheck", precheckKey, MAX_PRECHECKS, WINDOW_MS); }
+  catch { return json({ ok: false, reason: "Answer Coach is temporarily unavailable because its shared safety controls could not be verified." }, 503); }
   if (!precheck.allowed) return json({ ok: false, reason: "Too many verification attempts. Try again later." }, 429, precheck.retryAfterSeconds);
 
   let body: Record<string, unknown>;
@@ -63,7 +70,9 @@ export async function POST(request: Request) {
   }
 
   const rateKey = createHash("sha256").update(`${entitlement.subjectHash}:${forwarded}`).digest("hex");
-  const coachLimit = consumeRequestLimit(`coach:${rateKey}`, MAX_REQUESTS, WINDOW_MS);
+  let coachLimit;
+  try { coachLimit = await consumeRequestLimit("answer-coach-entitled", rateKey, MAX_REQUESTS, WINDOW_MS); }
+  catch { return json({ ok: false, reason: "Answer Coach is temporarily unavailable because its shared safety controls could not be verified." }, 503); }
   if (!coachLimit.allowed) return json({ ok: false, reason: "You have reached the hourly Coach limit. Take a pause and return later." }, 429, coachLimit.retryAfterSeconds);
 
   const provider = resolveCoachProvider();
@@ -84,13 +93,22 @@ export async function POST(request: Request) {
   })).digest("hex");
 
   try {
-    const checked = await runSingleFlight(`answer-coach:${requestKey}`, async () => {
+    const checked = await runControlledIdempotent(requestKey, async () => {
       const parsed = await callModel(provider, prompt);
       return validatePersonalizedCoach(parsed, transcript);
-    });
+    }, (value) => value.coach ? "ok" : "validation_failed");
     if (!checked.coach) return json({ ok: false, reason: `The coaching draft failed its evidence checks (${checked.fatal}). Nothing unsupported was shown.`, repairs: checked.repairs }, 422);
     return json({ ok: true, coach: checked.coach, provider: provider.label, model: provider.model, repairs: checked.repairs });
   } catch (error) {
+    if (error instanceof DuplicateRequestError) {
+      const reason = error.state === "in_progress"
+        ? "This same Coach request is already running. Wait a moment instead of starting another chargeable request."
+        : "This same Coach request finished very recently. Change an option or wait briefly before running it again.";
+      return json({ ok: false, reason }, 409, error.retryAfterSeconds || undefined);
+    }
+    if (error instanceof RequestControlUnavailableError) {
+      return json({ ok: false, reason: "Answer Coach is temporarily unavailable because its shared safety controls could not be verified." }, 503);
+    }
     const category = error instanceof Error ? error.message.slice(0, 100) : "provider error";
     console.error(`[answer-coach] ${provider.provider}: ${category}`);
     return json({ ok: false, reason: "The coaching service did not complete. Your conversation was not stored; try again shortly." }, 503);
