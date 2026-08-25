@@ -6,6 +6,8 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $projectRoot = $PSScriptRoot
+$releaseVersion = Get-Content -Raw (Join-Path $projectRoot "release-version.json") | ConvertFrom-Json
+$versionCode = [int]$releaseVersion.versionCode
 $ecosystemRoot = (Resolve-Path (Join-Path $projectRoot "..\..")).Path
 $javaHome = Join-Path $ecosystemRoot "FOUNDRY\android-tooling\.jdk\jdk-17.0.20+8"
 if (-not (Test-Path (Join-Path $javaHome "bin\java.exe"))) {
@@ -17,8 +19,8 @@ $keytool = Join-Path $javaHome "bin\keytool.exe"
 $jarsigner = Join-Path $javaHome "bin\jarsigner.exe"
 $apksignerJar = Join-Path $androidSdk "build-tools\36.1.0\lib\apksigner.jar"
 $keystore = Join-Path $projectRoot "android.keystore"
-$unsignedApk = Join-Path $projectRoot "build-v6\app\outputs\apk\release\app-release-unsigned.apk"
-$unsignedBundle = Join-Path $projectRoot "build-v6\app\outputs\bundle\release\app-release.aab"
+$unsignedApk = Join-Path $projectRoot "build-v$versionCode\app\outputs\apk\release\app-release-unsigned.apk"
+$unsignedBundle = Join-Path $projectRoot "build-v$versionCode\app\outputs\bundle\release\app-release.aab"
 $alias = "subtext"
 $releaseDir = Join-Path $projectRoot "release"
 $logPath = Join-Path $projectRoot "signing-diagnostic.log"
@@ -218,8 +220,8 @@ try {
     Write-Diagnostic "Permanent key backup verified."
 
     New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-    $releaseApk = Join-Path $releaseDir "subtext-v6-signed.apk"
-    $releaseBundle = Join-Path $releaseDir "subtext-v6-play.aab"
+    $releaseApk = Join-Path $releaseDir "subtext-v$versionCode-signed.apk"
+    $releaseBundle = Join-Path $releaseDir "subtext-v$versionCode-play.aab"
 
     $env:SUBTEXT_STORE_PASSWORD = $passwords.StorePassword
     $env:SUBTEXT_KEY_PASSWORD = $passwords.KeyPassword
@@ -276,7 +278,7 @@ try {
 
     Clear-Variable passwords -ErrorAction SilentlyContinue
     [System.Windows.Forms.MessageBox]::Show(
-        "Success. The signed Subtext version-6 Google Play bundle is ready and verified.",
+        "Success. The signed Subtext version-$versionCode Google Play bundle is ready and verified.",
         "Subtext release ready"
     ) | Out-Null
 }

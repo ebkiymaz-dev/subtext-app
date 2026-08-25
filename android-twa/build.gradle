@@ -16,11 +16,16 @@
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
+import groovy.json.JsonSlurper
+
+def releaseVersion = new JsonSlurper().parse(file('release-version.json'))
+def releaseBuildDir = "build-v${releaseVersion.versionCode}"
+
 // Keep Codex/release builds away from legacy OneDrive-owned Gradle outputs.
 // This avoids Windows ACL collisions without deleting any previous build.
-buildDir = file('build-v6/root')
+buildDir = file("${releaseBuildDir}/root")
 subprojects {
-    buildDir = file("$rootDir/build-v6/$name")
+    buildDir = file("$rootDir/${releaseBuildDir}/$name")
 }
 
 buildscript {

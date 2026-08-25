@@ -5,16 +5,26 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
+import android.net.http.SslError;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.RenderProcessGoneDetail;
+import android.webkit.SslErrorHandler;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Button;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -40,14 +50,15 @@ import java.util.List;
 
 /** Native, standalone Subtext shell. No Chrome Custom Tab or TWA UI. */
 public class MainActivity extends Activity implements PurchasesUpdatedListener {
-    private static final String START_URL = "https://neonjungletools.com/subtext/?app=6";
     private static final String COACH_PRODUCT_ID = "answer_coach_premium";
     private static final int FILE_CHOOSER_REQUEST = 4104;
     private WebView webView;
     private FrameLayout rootView;
     private View launchOverlay;
+    private View recoveryOverlay;
     private ValueCallback<Uri[]> fileCallback;
     private boolean pageShown;
+    private boolean mainFrameFailed;
     private BillingClient billingClient;
     private ProductDetails coachProduct;
     private String billingStatus = "loading";
@@ -83,6 +94,8 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(false);
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setAllowContentAccess(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -94,7 +107,10 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
-        settings.setUserAgentString(settings.getUserAgentString() + " SubtextAndroid/1.5");
+        settings.setUserAgentString(settings.getUserAgentString()
+                + " SubtextAndroid/" + BuildConfig.VERSION_NAME
+                + " (" + BuildConfig.VERSION_CODE + ")");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.setSafeBrowsingEnabled(true);
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         webView.addJavascriptInterface(new BillingBridge(), "SubtextBilling");
@@ -103,6 +119,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (!request.isForMainFrame()) return false;
                 return openOutsideIfNeeded(request.getUrl());
             }
 
@@ -112,13 +129,46 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
             }
 
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                mainFrameFailed = false;
+                removeRecoveryOverlay();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) showLoadFailure(
+                        "Subtext could not connect. Check your connection and try again.", false);
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                if (request.isForMainFrame() && response.getStatusCode() >= 400) showLoadFailure(
+                        "Subtext is temporarily unavailable. Your conversation was not sent.", false);
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.cancel();
+                showLoadFailure("Subtext stopped because the secure connection could not be verified.", false);
+            }
+
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                if (rootView != null) rootView.removeView(view);
+                view.destroy();
+                webView = null;
+                showLoadFailure("The secure reader stopped unexpectedly. Restart it to continue.", true);
+                return true;
+            }
+
+            @Override
             public void onPageCommitVisible(WebView view, String url) {
-                revealPage();
+                if (!mainFrameFailed) revealPage();
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                revealPage();
+                if (!mainFrameFailed) revealPage();
             }
         });
 
@@ -160,6 +210,64 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         mark.gravity = android.view.Gravity.CENTER;
         overlay.addView(wordmark, mark);
         return overlay;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void showLoadFailure(String message, boolean rendererGone) {
+        mainFrameFailed = true;
+        revealPage();
+        removeRecoveryOverlay();
+        if (rootView == null) return;
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setGravity(Gravity.CENTER);
+        panel.setPadding(dp(28), dp(28), dp(28), dp(28));
+        panel.setBackgroundColor(Color.parseColor("#FAF7F2"));
+
+        TextView title = new TextView(this);
+        title.setText("Subtext needs a moment");
+        title.setTextColor(Color.parseColor("#1F1D1A"));
+        title.setTextSize(24);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        TextView detail = new TextView(this);
+        detail.setText(message);
+        detail.setTextColor(Color.parseColor("#3A342C"));
+        detail.setTextSize(16);
+        detail.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        detailParams.setMargins(0, dp(14), 0, dp(22));
+        panel.addView(detail, detailParams);
+
+        Button retry = new Button(this);
+        retry.setText(rendererGone ? "Restart Subtext" : "Try again");
+        retry.setTextColor(Color.WHITE);
+        retry.setBackgroundColor(Color.parseColor("#836524"));
+        retry.setOnClickListener(view -> {
+            if (rendererGone || webView == null) {
+                recreate();
+                return;
+            }
+            removeRecoveryOverlay();
+            webView.loadUrl(urlFromIntent(getIntent()));
+        });
+        panel.addView(retry, new LinearLayout.LayoutParams(dp(220), dp(52)));
+
+        recoveryOverlay = panel;
+        rootView.addView(panel, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void removeRecoveryOverlay() {
+        if (rootView != null && recoveryOverlay != null) rootView.removeView(recoveryOverlay);
+        recoveryOverlay = null;
     }
 
     private void revealPage() {
@@ -404,7 +512,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
                 return uri.toString();
             }
         }
-        return START_URL;
+        return "https://neonjungletools.com/subtext/?app=" + BuildConfig.VERSION_CODE;
     }
 
     @Override
@@ -422,7 +530,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        webView.saveState(outState);
+        if (webView != null) webView.saveState(outState);
         super.onSaveInstanceState(outState);
     }
 

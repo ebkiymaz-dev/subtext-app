@@ -15,10 +15,13 @@
  */
 
 import groovy.xml.MarkupBuilder
+import groovy.json.JsonSlurper
 
 plugins {
     id 'com.android.application'
 }
+
+def releaseVersion = new JsonSlurper().parse(file("${rootProject.projectDir}/release-version.json"))
 
 // Kotlin 1.8 folded the old jdk7/jdk8 extension artifacts into stdlib. The
 // Android Browser Helper still declares the legacy modules, so exclude them
@@ -31,7 +34,7 @@ configurations.configureEach {
 def twaManifest = [
     applicationId: 'com.neonjungle.subtext',
     hostName: 'neonjungletools.com', // The domain being opened in the TWA.
-    launchUrl: '/subtext/?app=5', // Versioned to prevent a pre-release task from reopening an obsolete shell.
+    launchUrl: "/subtext/?app=${releaseVersion.versionCode}", // Versioned to prevent an obsolete shell reopening.
     name: 'Subtext', // The application name.
     launcherName: 'Subtext', // The name shown on the Android Launcher.
     themeColor: '#1F1D1A', // The color used for the status bar.
@@ -61,12 +64,15 @@ def twaManifest = [
 android {
     compileSdkVersion 36
     namespace "com.neonjungle.subtext"
+    buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         applicationId "com.neonjungle.subtext"
         minSdkVersion 23
         targetSdkVersion 36
-        versionCode 6
-        versionName "1.5"
+        versionCode releaseVersion.versionCode as int
+        versionName releaseVersion.versionName as String
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -175,7 +181,8 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
     lintOptions {
-        checkReleaseBuilds false
+        checkReleaseBuilds true
+        abortOnError true
     }
     packagingOptions {
         resources {
