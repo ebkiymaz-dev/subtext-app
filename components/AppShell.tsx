@@ -35,7 +35,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             <span aria-hidden className="ml-2 h-1.5 w-1.5 rounded-full bg-sbt-gold-700" />
           </Link>
-          <nav className="flex items-center gap-1 text-sm">
+          <nav className="hidden items-center gap-1 text-sm sm:flex">
             <Link
               href="/"
               className={`rounded-sbt px-3 py-1.5 transition-colors ${
@@ -88,11 +88,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           Archive
         </Link>
         <Link
-          href="/privacy"
-          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname.startsWith("/privacy") ? "text-sbt-gold-700" : "text-sbt-mute"}`}
+          href="/plans"
+          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname.startsWith("/plans") ? "text-sbt-gold-700" : "text-sbt-mute"}`}
         >
-          <span aria-hidden className="text-base">⌾</span>
-          Privacy
+          <span aria-hidden className="text-base">✦</span>
+          Coach
         </Link>
       </nav>
 

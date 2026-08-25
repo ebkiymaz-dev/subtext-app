@@ -413,6 +413,28 @@ export default function Home() {
     setResolutionMarked(false);
   }
 
+  function loadSample(sample: (typeof SAMPLES)[number]) {
+    clearActiveRead();
+    setRaw(sample.text);
+    setContext(sample.context);
+    setFamiliarity(sample.familiarity);
+    setYouName(sample.youName);
+    setSpeakerAssignments({});
+    setExcludedMessages({});
+    setCustomParticipants([]);
+    setFocusName(null);
+    setOtherName("");
+    setOcrState("idle");
+    setOcrSpeakersConfirmed(true);
+    setOcrMessage(null);
+    setParseWarning(null);
+    setRunError(null);
+    setAnalysis(null);
+    setPhase("intake");
+    recordProductEvent("sample_loaded");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function saveCurrentRead(profile: LocalProfile) {
     if (!analysis) return;
     const themSpeaker = analysis.transcript.messages.find((message) => message.speaker === "them")?.name ?? "Other person";
@@ -486,36 +508,32 @@ export default function Home() {
             <h1 className="font-display text-2xl text-sbt-ink">Your read</h1>
             <p className="mt-1 text-xs text-sbt-mute">{youSpeaker} and {themSpeaker} · {analysis.transcript.messages.length} messages</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div>
             <button
               type="button"
               onClick={reset}
-              className="rounded-sbt bg-sbt-ink px-3 py-2 text-sm text-sbt-paper transition-colors hover:bg-sbt-dusk"
+              className="min-h-11 rounded-sbt px-3 py-2 text-sm text-sbt-mute underline decoration-sbt-linen underline-offset-4 transition-colors hover:text-sbt-ink"
             >
               New conversation
-            </button>
-            <button
-              type="button"
-              disabled={saveState === "saved"}
-              onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)}
-              className="rounded-sbt border-2 border-sbt-gold/55 bg-sbt-gold/[0.10] px-3 py-2 text-sm font-semibold text-sbt-gold-700 disabled:border-emerald-300 disabled:bg-emerald-50 disabled:text-emerald-800"
-            >
-              {saveState === "saved" ? "Saved to archive ✓" : "Save to archive"}
-            </button>
-            <button type="button" onClick={shareRead} className="rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">
-              {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share"}
-            </button>
-            <button type="button" disabled={resolutionMarked} onClick={() => { setReflection(recordReflection()); setResolutionMarked(true); }} className="rounded-sbt border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 disabled:opacity-60">
-              {resolutionMarked ? "Marked complete ✓" : "Done with this read"}
             </button>
           </div>
         </header>
 
-        {shareState === "failed" ? (
-          <p role="status" className="rounded-sbt border border-sbt-linen bg-white/70 px-3 py-2 text-xs text-sbt-mute">
-            Sharing was unavailable on this device. Your conversation was not included or uploaded.
+        {/* The answer comes before every secondary action. This is the user's
+            first moment of value and must not be buried under controls. */}
+        <section className="rounded-sbt border border-sbt-gold/30 bg-sbt-gold/[0.06] p-5">
+          <p className="text-[10px] uppercase tracking-widest text-sbt-mute">the short version</p>
+          <p className="mt-1.5 font-display text-[17px] leading-relaxed text-sbt-ink sm:text-[19px]">
+            {analysis.headline}
           </p>
-        ) : null}
+          <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
+            <summary className="cursor-pointer">Why relationship context changes this read</summary>
+            <p className="mt-2 leading-relaxed">
+              Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
+              known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span>. The exchange is compared with the level of formality normally expected in that setting—not with a universal relationship standard.
+            </p>
+          </details>
+        </section>
 
         {groupStats.length > 2 ? (
           <section className="rounded-sbt border border-sbt-gold/30 bg-sbt-gold/[0.05] p-4">
@@ -545,6 +563,32 @@ export default function Home() {
             </p>
           </section>
         ) : null}
+
+        <Interpretations items={analysis.interpretations} />
+
+        <section aria-label="Read actions" className="rounded-sbt border border-sbt-linen bg-white/60 p-3">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <button
+              type="button"
+              disabled={saveState === "saved"}
+              onClick={() => localProfile ? saveCurrentRead(localProfile) : setShowSaveProfile(true)}
+              className="min-h-11 rounded-sbt border-2 border-sbt-gold/55 bg-sbt-gold/[0.10] px-3 py-2 text-sm font-semibold text-sbt-gold-700 disabled:border-emerald-300 disabled:bg-emerald-50 disabled:text-emerald-800"
+            >
+              {saveState === "saved" ? "Saved ✓" : "Save to archive"}
+            </button>
+            <button type="button" onClick={shareRead} className="min-h-11 rounded-sbt border border-sbt-linen px-3 py-2 text-sm text-sbt-dusk">
+              {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share read"}
+            </button>
+            <button type="button" disabled={resolutionMarked} onClick={() => { setReflection(recordReflection()); setResolutionMarked(true); }} className="col-span-2 min-h-11 rounded-sbt border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 disabled:opacity-60">
+              {resolutionMarked ? "Marked complete ✓" : "Done with this read"}
+            </button>
+          </div>
+          {shareState === "failed" ? (
+            <p role="status" className="mt-2 text-xs text-sbt-mute">
+              Sharing was unavailable on this device. Your conversation was not included or uploaded.
+            </p>
+          ) : null}
+        </section>
 
         {showSaveProfile ? (
           <section className="rounded-sbt border border-sbt-gold/35 bg-sbt-gold/[0.06] p-4">
@@ -578,23 +622,6 @@ export default function Home() {
             </div>
           </section>
         ) : null}
-
-        {/* THE HEADLINE. Nine bars is not an answer; this is the answer. */}
-        <section className="rounded-sbt border border-sbt-gold/30 bg-sbt-gold/[0.06] p-5">
-          <p className="text-[10px] uppercase tracking-widest text-sbt-mute">the short version</p>
-          <p className="mt-1.5 font-display text-[17px] leading-relaxed text-sbt-ink sm:text-[19px]">
-            {analysis.headline}
-          </p>
-          <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
-            <summary className="cursor-pointer">Why relationship context changes this read</summary>
-            <p className="mt-2 leading-relaxed">
-              Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
-              known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span>. The exchange is compared with the level of formality normally expected in that setting—not with a universal relationship standard.
-            </p>
-          </details>
-        </section>
-
-        <Interpretations items={analysis.interpretations} />
 
         <CoachCard
           locked={!coachUnlocked}
@@ -746,6 +773,16 @@ export default function Home() {
           <span aria-hidden="true">🔒</span>
           <span><strong>Private by default.</strong> Analysis happens on this device and nothing is saved unless you choose to archive it.</span>
         </div>
+
+        {!raw.trim() ? (
+          <button
+            type="button"
+            onClick={() => loadSample(SAMPLES[0])}
+            className="mt-3 min-h-11 rounded-sbt border border-sbt-gold/35 bg-sbt-gold/[0.05] px-3 py-2 text-sm font-medium text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.12]"
+          >
+            Not ready to paste? Try a sample conversation
+          </button>
+        ) : null}
 
         <div className="mt-4">
           <div className="flex items-center gap-2">
@@ -1033,21 +1070,7 @@ export default function Home() {
             <li key={s.id}>
               <button
                 type="button"
-                onClick={() => {
-                  setRaw(s.text);
-                  setContext(s.context);
-                  setFamiliarity(s.familiarity);
-                  setYouName(s.youName);
-                  setSpeakerAssignments({});
-                  setExcludedMessages({});
-                  setCustomParticipants([]);
-                  setFocusName(null);
-                  setOtherName("");
-                  setOcrState("idle");
-                  setOcrMessage(null);
-                  setParseWarning(null);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
+                onClick={() => loadSample(s)}
                 className={`h-full w-full rounded-sbt border p-4 text-left transition-colors ${
                   s.triggersCare
                     ? "border-sbt-rose/30 bg-sbt-rose/[0.05] hover:border-sbt-rose/60"

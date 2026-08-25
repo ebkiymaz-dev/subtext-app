@@ -4,6 +4,7 @@ export type SubtextEvent =
   | "analysis_failed"
   | "distress_guard_shown"
   | "read_shared"
+  | "sample_loaded"
   | "screenshot_imported"
   | "conversation_archived";
 

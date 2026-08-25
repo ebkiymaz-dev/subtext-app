@@ -39,12 +39,11 @@ const quoteOf = (t: Transcript, id: string | null | undefined) =>
   id ? (t.messages.find((m) => m.id === id)?.text ?? "") : "";
 
 /**
- * THE HEADLINE — one sentence, stated plainly.
+ * THE HEADLINE — a short, evidence-grounded summary.
  *
  * The panel is honest but it is also nine bars, and nine bars is not an
- * answer. This is the answer, and it is deliberately allowed to be blunt:
- * hedging every sentence into mush is its own kind of dishonesty, and it was
- * the main thing wrong with the v1 output.
+ * answer. This is the answer, but it must separate what the text shows from
+ * what it cannot establish about the writer's intent.
  */
 export function buildHeadline(
   s: SignalSummary,
@@ -56,7 +55,7 @@ export function buildHeadline(
   const bid = s.bids.find((b) => b.by === "you" && (b.kind === "compliment" || b.kind === "affection"));
 
   if (s.softClose && bid) {
-    const base = `${bid.kind === "compliment" ? "A compliment" : "An expression of affection"} was answered with a politeness token and a sign-off. Warm on the surface, closed underneath — and the closing is the part that carries information.`;
+    const base = `${bid.kind === "compliment" ? "A compliment" : "An expression of affection"} was acknowledged and followed by a sign-off. The reply closes this exchange without opening a new topic, but the text alone cannot tell us why.`;
     // With days of history there is no established register for this to be
     // a step back FROM, and saying so is more useful than the sharper line.
     return p.deviation <= 0.5
@@ -64,7 +63,7 @@ export function buildHeadline(
       : base;
   }
   if (get(cats, "pressure") >= 40) {
-    return "The phrasing on their side is doing work on you: obligation, urgency and consensus framing all appear, and the effect is to compress your time to think.";
+    return "Their messages use obligation, urgency, or social pressure. Whatever the intent, that wording can make it harder to take time before responding.";
   }
   // ── the reading the user did not come here for ──
   // There are two people in every transcript and one of them is holding the
@@ -79,13 +78,13 @@ export function buildHeadline(
   // tool like this loses the user's trust in one screen.
   if (p.transactional) {
     if (get(cats, "anchoring") >= 38) {
-      return "The moves in this exchange are working on your reference point rather than on the terms: what is framed as fixed, who else is supposedly interested, and by when. Price the offer before you price the framing.";
+      return "The exchange emphasizes what is fixed, who else may be interested, or how quickly you must decide. Check the actual terms separately from that framing.";
     }
     if (get(cats, "commitment_specificity") >= 55) {
       return "Nothing on their side commits to a time, a figure or a place. In an exchange whose entire purpose is to arrange one of those three, that absence is the finding.";
     }
     if (get(cats, "deadline_pressure") >= 40) {
-      return "The clock in this exchange is being supplied by them, not by the situation. That is a normal move and it still works on you if you do not name it.";
+      return "The deadline is stated by the other person rather than demonstrated by the situation. Verify the timing before treating it as fixed.";
     }
   }
 
@@ -93,7 +92,7 @@ export function buildHeadline(
   // The whole point of the familiarity input: identical text, opposite
   // meaning. This branch is unreachable below a year of history, by design.
   if (p.deviation >= 1 && formalityExcess(s.themFormality, p) >= 0.5 && !s.mutualClose) {
-    return `You have known them ${p.familiarityLabel.toLowerCase()}, and they are answering in a register people keep for people they do not know. Nothing in it is unkind — which is exactly what makes it worth noticing, because distance in text almost never arrives as unkindness.`;
+    return `You have known them ${p.familiarityLabel.toLowerCase()}, and this reply is more formal than the context would usually call for. That may indicate distance, but the message alone cannot establish the reason.`;
   }
 
   if (context === "work" && get(cats, "accountability_shift") >= 28) {
@@ -109,13 +108,13 @@ export function buildHeadline(
     s.lastSpeaker === "them" &&
     get(cats, "engagement") < 45
   ) {
-    return "Their last message retires the conversation rather than handing it back. Nothing in it needs a reply, which is usually a choice even when it isn't a conscious one.";
+    return "Their last message acknowledges the exchange and closes it without adding a question or new topic. That supports a reading of conversational closure, but the text alone cannot tell us why.";
   }
   if (
     (context === "dating" || context === "friendship") &&
     (get(cats, "fade_markers") >= 45 || (get(cats, "engagement") < 35 && get(cats, "subtext_load") >= 40))
   ) {
-    return "Warm words, no dates attached. Every reference to the future here is unbounded, and unbounded is how a fade sounds while it is happening.";
+    return "The words are warm, but no specific plan is offered. That can fit a gradual loss of momentum, though busyness or uncertainty could produce the same pattern.";
   }
   if (get(cats, "engagement") >= 60 && get(cats, "reciprocity") >= 55) {
     return "Both of you are carrying this. Attempts to connect are answered and continued, questions travel in both directions, and the tone is matched — this reads as a conversation, not a transaction.";
@@ -129,7 +128,7 @@ export function buildHeadline(
   if (s.turns.length <= 3) {
     return `${s.turns.length} message${s.turns.length === 1 ? "" : "s"} is a thin sample. The structural signals below are real, but a confident story about what they mean would be invented rather than found.`;
   }
-  return "Nothing in this exchange is doing anything unusual. That is a real finding rather than a failure to find one.";
+  return "No unusual language pattern stands out in this exchange. That does not establish intent; it means the text does not support a stronger conclusion.";
 }
 
 export function buildInterpretations(
