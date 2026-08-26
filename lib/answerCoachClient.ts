@@ -1,4 +1,5 @@
 import { withBase } from "./basePath";
+import { COACH_CLIENT_TIMEOUT_MS } from "./coach-budget";
 import type { CoachGoalId, CoachToneId, PersonalizedCoachResult } from "./engine/answerCoach";
 import type { ContextId, FamiliarityId } from "./engine/types";
 import type { PlayEntitlementProof } from "./playBilling";
@@ -16,7 +17,7 @@ export async function requestPersonalizedCoach(input: {
   const controller = new AbortController();
   const timer = window.setTimeout(
     () => controller.abort(new DOMException("Answer Coach timed out", "TimeoutError")),
-    38_000,
+    COACH_CLIENT_TIMEOUT_MS,
   );
   try {
     const response = await fetch(withBase("/api/answer-coach"), {

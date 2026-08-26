@@ -37,6 +37,9 @@ for (const item of cases) {
   };
   const checked = validatePersonalizedCoach(fixture, transcript);
   if (!checked.coach) { console.error(`FAIL ${item.id}: valid fixture rejected (${checked.fatal})`); failures++; }
+  const overconfident = validatePersonalizedCoach({ ...fixture, confidence: { level: "reasonable", why: "Certain." } }, transcript);
+  if (overconfident.coach?.confidence.level !== "low") { console.error(`FAIL ${item.id}: short excerpt confidence was not capped`); failures++; }
+  if (!prompt.includes("Without timestamps") || !prompt.includes("Do not invent dates")) { console.error(`FAIL ${item.id}: missing fact/timing safeguards`); failures++; }
 
   const invented = structuredClone(fixture);
   invented.observations[0].quote = "This line was never in the conversation";

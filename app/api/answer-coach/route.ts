@@ -10,6 +10,7 @@ import type { ContextId, FamiliarityId } from "@/lib/engine/types";
 import { resolveCoachProvider } from "@/lib/providers";
 import { verifyPlayEntitlement, type EntitlementProof } from "@/lib/server/playEntitlement";
 import { fetchWithTimeout } from "@/lib/server/boundedFetch";
+import { COACH_MODEL_TIMEOUT_MS } from "@/lib/coach-budget";
 import {
   consumeRequestLimit,
   DuplicateRequestError,
@@ -24,7 +25,7 @@ export const revalidate = 0;
 const MAX_CHARS = 12_000;
 const MAX_STAKES = 500;
 const MAX_BODY_BYTES = 24_000;
-const MODEL_TIMEOUT_MS = 30_000;
+const MODEL_TIMEOUT_MS = COACH_MODEL_TIMEOUT_MS;
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS = 20;
 const MAX_PRECHECKS = 60;
@@ -130,7 +131,9 @@ async function callModel(provider: Provider, prompt: string): Promise<unknown> {
           method: "POST",
           signal: controller.signal,
           headers: { "Content-Type": "application/json", "x-goog-api-key": provider.apiKey },
-          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 4096, responseMimeType: "application/json", responseSchema: ANSWER_COACH_SCHEMA } }),
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 4096, responseMimeType: "application/json", responseSchema: ANSWER_COACH_SCHEMA,
+            ...(model === "gemini-3.6-flash" ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
+          } }),
         }, MODEL_TIMEOUT_MS);
         if (response.status === 404 || response.status === 503) { last = `${model} unavailable`; continue; }
         if (!response.ok) throw new Error(`provider HTTP ${response.status}`);

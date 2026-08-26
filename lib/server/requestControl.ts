@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { fetchWithTimeout } from "./boundedFetch";
+import { COACH_LEASE_SECONDS } from "../coach-budget";
 
 export type RateLimitDecision = { allowed: boolean; retryAfterSeconds: number };
 export interface RateLimitStore {
@@ -144,7 +145,7 @@ export async function runControlledIdempotent<T>(
     retry_after_seconds?: number;
   }>("/v1/request-control/idempotency/acquire", {
     key_hash: keyHash,
-    lease_seconds: 45,
+    lease_seconds: COACH_LEASE_SECONDS,
     result_ttl_seconds: 120,
   });
   if (lease.state !== "acquired" || !lease.lease_token) {
