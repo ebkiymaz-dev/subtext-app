@@ -1,6 +1,7 @@
 import { buildAnswerCoachPrompt, validatePersonalizedCoach, type CoachGoalId } from "../lib/engine/answerCoach";
 import { segment, setYou } from "../lib/engine/segment";
 import type { ContextId } from "../lib/engine/types";
+import { coachGroundingFailure, hasUnqualifiedReading } from "../lib/engine/coachGrounding";
 
 const cases: { id: string; context: ContextId; goal: CoachGoalId; text: string; safety: string }[] = [
   { id: "partner-repair", context: "partner", goal: "repair", text: "Me: I want to fix this without fighting.\nMaya: I want that too, but I need time tonight.", safety: "No special safety concern is visible." },
@@ -14,6 +15,11 @@ const cases: { id: string; context: ContextId; goal: CoachGoalId; text: string; 
 ];
 
 let failures = 0;
+let regressionChecks = 0;
+function check(ok: boolean, label: string) {
+  regressionChecks++;
+  if (!ok) { console.error(`FAIL ${label}`); failures++; }
+}
 for (const item of cases) {
   const transcript = setYou(segment(item.text), "Me");
   const first = transcript.messages[0]?.text ?? "";
@@ -45,11 +51,36 @@ for (const item of cases) {
   invented.observations[0].quote = "This line was never in the conversation";
   const repaired = validatePersonalizedCoach(invented, transcript);
   if (!repaired.coach || repaired.coach.observations.some((observation) => observation.quote.includes("never in"))) { console.error(`FAIL ${item.id}: invented quote survived`); failures++; }
+
+  for (const timing of ["You sent messages in quick succession.", "They replied immediately.", "There was a delayed response."]) {
+    check(!validatePersonalizedCoach({ ...fixture, userContribution: timing }, transcript).coach, `${item.id}: unsupported timing withheld`);
+  }
+  for (const promise of ["I'll follow up tomorrow morning.", "I will pay $299.", "Let's meet at 9:45."]) {
+    const changed = structuredClone(fixture);
+    changed.replies[0].text = promise;
+    check(!validatePersonalizedCoach(changed, transcript).coach, `${item.id}: invented commitment withheld`);
+  }
+  const editable = structuredClone(fixture);
+  editable.replies[0].text = "Would [tomorrow morning / a time that works for you] suit you?";
+  check(Boolean(validatePersonalizedCoach(editable, transcript).coach), `${item.id}: editable proposal allowed`);
+  const asserted = structuredClone(fixture);
+  asserted.possibleReadings = asserted.possibleReadings.map(item => ({ ...item, explanation: "Alex treats messaging as asynchronous. That is their habit." }));
+  check(!validatePersonalizedCoach(asserted, transcript).coach, `${item.id}: unqualified motive withheld`);
+  check(!validatePersonalizedCoach({ ...fixture, avoid: [] }, transcript).coach, `${item.id}: missing avoid section withheld`);
+  const longer = { ...transcript, messages: Array.from({ length: 8 }, () => transcript.messages).flat() };
+  check(!validatePersonalizedCoach({ ...fixture, confidence: { level: "reasonable", why: "This proves that they are lying." } }, longer).coach, `${item.id}: unsafe long-sample confidence withheld`);
 }
+
+for (const explanation of ["One possibility is that they need a break.", "Another possibility is a practical constraint.", "Alex might simply be busy.", "It could be about the task."]) {
+  check(!hasUnqualifiedReading(explanation), "tentative reading accepted");
+}
+check(hasUnqualifiedReading("Alex wants control. It could be something else."), "late disclaimer does not repair asserted opening");
+check(!coachGroundingFailure({ messages: ["Tomorrow morning at 9:45 works. It costs $299."], prose: [], replies: ["Tomorrow morning at 9:45 works. I can pay $299."] }), "source-backed specifics accepted");
+check(!coachGroundingFailure({ messages: [], prose: ["You sent three consecutive messages before the reply."], replies: ["When would be a good time?"] }), "order and availability question accepted");
 
 const transcript = setYou(segment("Me: Can we talk?\nSam: Tomorrow works."), "Me");
 const unsafe = { summary: "They are manipulating you.", observations: [], possibleReadings: [], userContribution: "None", recommendedApproach: "Test them.", replies: [], avoid: [], safetyNote: "None", confidence: { level: "reasonable", why: "Certain." } };
 if (validatePersonalizedCoach(unsafe, transcript).coach) { console.error("FAIL banned certainty/intent claims survived"); failures++; }
 
 if (failures) process.exit(1);
-console.log(`Personalized Coach gate passed: ${cases.length} contexts, quote grounding, three-style replies, and banned-claim rejection.`);
+console.log(`Personalized Coach gate passed: ${cases.length} contexts, ${regressionChecks} grounding regressions, quote grounding, three-style replies, and banned-claim rejection.`);
