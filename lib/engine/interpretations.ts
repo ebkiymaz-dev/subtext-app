@@ -172,6 +172,8 @@ export function buildInterpretations(
           : "Brevity may reflect busyness, device use, writing style, or unseen context. Short text alone is weak evidence.",
     suggestedNext: s.softClose
       ? "If there is no practical deadline or safety concern, one option is to wait and see whether the conversation resumes normally."
+      : evasion < 25 && pressure < 25 && distance < 35
+        ? "If the plan is already clear, a brief acknowledgment or no further reply may be enough. This excerpt does not give you a reason to seek reassurance."
       : "Say the plain thing: “Hey — no pressure either way, just wanted to check we're good.” It costs nothing and resolves most of this.",
     weight: s.softClose ? 30 : 30,
     quotes: closingQuote ? [closingQuote] : [],

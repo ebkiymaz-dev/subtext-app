@@ -13,6 +13,7 @@ function verifyArchiveAndOrdinaryRead(): void {
   assert.equal(result.kind, "analysis");
   if (result.kind !== "analysis") throw new Error("ordinary conversation incorrectly blocked");
   assert.doesNotMatch(result.analysis.headline, /more formal|indicate distance|loss of momentum/i);
+  assert.match(result.analysis.interpretations.find((item) => item.charitable)?.suggestedNext ?? "", /no further reply/);
   assert((result.analysis.categories.find((c) => c.id === "warmth_distance")?.percent ?? 0) < 40);
   const storage = new Map<string, string>();
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -26,6 +27,9 @@ function verifyArchiveAndOrdinaryRead(): void {
     const saved = saveArchivedConversation(profile, input);
     assert.equal(saveArchivedConversation(profile, input).id, saved.id, "repeat save created a new ID");
     assert.equal(readArchive().length, 1, "repeat save duplicated archive");
+    const refreshed = saveArchivedConversation(profile, { ...input, headline: "Updated engine read" });
+    assert.equal(refreshed.id, saved.id);
+    assert.equal(readArchive()[0].headline, "Updated engine read", "explicit save retained a stale analysis");
     keepActiveRead({ raw, analyzedRaw: raw, context: "friendship", familiarity: "year", youName: "Alex", focusName: "Sam", otherName: "Sam", speakerAssignments: {}, excludedMessages: {}, customParticipants: [], analysis: result.analysis, savedArchiveId: saved.id });
     assert.equal(readActiveRead()?.savedArchiveId, saved.id, "saved label cannot survive tab navigation");
     saveArchivedConversation(profile, { ...input, raw: raw + "\nAlex: Thanks!" });

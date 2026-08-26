@@ -67,7 +67,13 @@ export function saveArchivedConversation(
   const duplicate = existing.find((item) => item.profileId === profile.id
     && item.raw === input.raw && item.context === input.context
     && item.familiarity === input.familiarity && item.otherName === input.otherName);
-  if (duplicate) return duplicate;
+  if (duplicate) {
+    // An explicit new save can refresh an older engine's result, while
+    // retaining its identity instead of adding another conversation.
+    const updated = { ...duplicate, ...input };
+    window.localStorage.setItem(ARCHIVE_KEY, JSON.stringify(existing.map((item) => item.id === duplicate.id ? updated : item)));
+    return updated;
+  }
   const item: ArchivedConversation = {
     ...input,
     id: makeId(),
