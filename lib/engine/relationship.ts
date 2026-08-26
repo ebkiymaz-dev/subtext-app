@@ -390,7 +390,7 @@ export function registerNarrative(
   const high = excess >= 0.4;
   const gap = asymmetry >= 0.15;
 
-  if (!high && !gap) return null;
+  if (!gap) return null;
 
   // ── the stranger end: formality is the prescription, not the message ──
   //
@@ -410,11 +410,11 @@ export function registerNarrative(
 
   // ── the long-history end: the same behaviour, now a departure ──
   if (p.deviation >= 1.15 && high) {
-    return `They answer in a register more formal than this relationship runs on${pairs}. You have known them ${p.familiarityLabel.toLowerCase()} — the familiar form was available and not taken. Over that much history, choosing the correct form over the close one is a choice, and it is one of the quieter ways people put distance in writing.`;
+    return `Their wording is more formal than yours in this excerpt${pairs}. Knowing someone a long time does not tell us their usual writing style; this alone is not evidence of emotional distance.`;
   }
 
   if (high && gap) {
-    return `Their register sits above both yours and the baseline for this kind of relationship${pairs}. Answering warmth in a more formal key than it was offered in is one of the softest ways distance shows up in text.`;
+    return `Their wording is more formal than yours${pairs}. Writing habits, the topic, or the situation could explain that difference; this excerpt cannot establish their intent.`;
   }
   if (gap) {
     return `Their register sits noticeably more formal than yours across the exchange${pairs}, though not above what a ${p.contextLabel.toLowerCase()} exchange would produce on its own.`;
@@ -430,7 +430,7 @@ export function registerCaveat(p: RelationshipProfile): string {
   if (p.transactional) {
     return `A ${p.contextLabel.toLowerCase()} exchange is supposed to be businesslike. Register is only reported here when it exceeds what the situation already prescribes, and even then it is weak evidence.`;
   }
-  return "Some people write to everyone the same way, including the people closest to them. What this measures is the gap between the register this relationship usually runs on and the one used here — and a gap has many causes, most of them dull.";
+  return "Some people write to everyone the same way, including those closest to them. Subtext does not know your usual conversations. A writing-style difference is not proof of distance or a change in feelings.";
 }
 
 const listOf = (xs: string[]) =>

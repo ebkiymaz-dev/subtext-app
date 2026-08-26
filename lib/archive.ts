@@ -62,13 +62,19 @@ export function saveArchivedConversation(
   profile: LocalProfile,
   input: Omit<ArchivedConversation, "id" | "profileId" | "createdAt">
 ): ArchivedConversation {
+  const existing = readArchive();
+  // Repeated taps or returning from Archive must not create another copy.
+  const duplicate = existing.find((item) => item.profileId === profile.id
+    && item.raw === input.raw && item.context === input.context
+    && item.familiarity === input.familiarity && item.otherName === input.otherName);
+  if (duplicate) return duplicate;
   const item: ArchivedConversation = {
     ...input,
     id: makeId(),
     profileId: profile.id,
     createdAt: new Date().toISOString(),
   };
-  const next = [item, ...readArchive()].slice(0, 100);
+  const next = [item, ...existing].slice(0, 100);
   window.localStorage.setItem(ARCHIVE_KEY, JSON.stringify(next));
   return item;
 }

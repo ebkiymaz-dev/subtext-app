@@ -312,7 +312,8 @@ const ALL_BUILDERS: Builder[] = [
       const refRate = tt.length ? tt.filter((x) => x.refersToOther).length / tt.length : 0.5;
 
       // How far their register sits above what THIS pairing prescribes.
-      const excess = formalityExcess(s.themFormality, p);
+      const excess = formalityExcess(s.themFormality, p)
+        * clamp01(Math.max(0, s.politenessAsymmetry) / 0.2);
       const gap = clamp01(Math.max(0, s.politenessAsymmetry) / 0.45);
 
       let d = 0;

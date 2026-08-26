@@ -46,6 +46,7 @@ import {
 } from "@/lib/group-chat";
 import {
   createLocalProfile,
+  readArchive,
   readLocalProfile,
   saveArchivedConversation,
   type LocalProfile,
@@ -59,7 +60,7 @@ const CONTEXT_PLACEHOLDERS: Record<ContextId, string> = {
   dating: "Paste their last text here…",
   friendship: "Paste the text you keep rereading here…",
   family: "Paste the family message you want help reading here…",
-  work: "Paste that passive-aggressive email from your manager here…",
+  work: "Paste the work conversation or email you want help understanding here…",
   roommate: "Paste the message about the dishes, rent, or boundaries here…",
   ex_partner: "Paste the 2 AM message here…",
   business: "Paste the negotiation message here…",
@@ -142,6 +143,7 @@ export default function Home() {
       setExcludedMessages(activeRead.excludedMessages);
       setCustomParticipants(activeRead.customParticipants);
       setAnalysis(activeRead.analysis);
+      setSaveState(activeRead.savedArchiveId && readArchive().some((item) => item.id === activeRead.savedArchiveId) ? "saved" : "idle");
       setPhase("result");
     }
 
@@ -324,8 +326,10 @@ export default function Home() {
           return;
         }
         setAnalysis(result.analysis);
+        setSaveState("idle");
         keepActiveRead({
           raw,
+          analyzedRaw: input,
           context,
           familiarity,
           youName: resolveYouName() ?? null,
@@ -428,15 +432,19 @@ export default function Home() {
   function saveCurrentRead(profile: LocalProfile) {
     if (!analysis) return;
     const themSpeaker = analysis.transcript.messages.find((message) => message.speaker === "them")?.name ?? "Other person";
-    saveArchivedConversation(profile, {
+    const saved = saveArchivedConversation(profile, {
       title: `${analysis.profile.contextLabel} read · ${themSpeaker}`,
       otherName: themSpeaker,
-      raw: preparedTranscript(),
+      // Store the exact transcript that produced this result. Creating a
+      // local profile must not rename its speakers after the analysis.
+      raw: readActiveRead()?.analyzedRaw ?? preparedTranscript(),
       context,
       familiarity,
       headline: analysis.headline,
       categories: analysis.categories.map(({ id, label, percent, read }) => ({ id, label, percent, read })),
     });
+    const currentRead = readActiveRead();
+    if (currentRead) keepActiveRead({ ...currentRead, savedArchiveId: saved.id });
     recordProductEvent("conversation_archived");
     setSaveState("saved");
   }

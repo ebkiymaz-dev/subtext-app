@@ -8,6 +8,7 @@ import type { ExcludedMessages, SpeakerAssignments } from "./group-chat";
  */
 export type ActiveRead = {
   raw: string;
+  analyzedRaw?: string;
   context: ContextId;
   familiarity: FamiliarityId;
   youName: string | null;
@@ -17,6 +18,7 @@ export type ActiveRead = {
   excludedMessages: ExcludedMessages;
   customParticipants: string[];
   analysis: Analysis;
+  savedArchiveId?: string;
 };
 
 let currentRead: ActiveRead | null = null;

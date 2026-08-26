@@ -88,11 +88,10 @@ export function buildHeadline(
     }
   }
 
-  // ── register as a DEPARTURE ──
-  // The whole point of the familiarity input: identical text, opposite
-  // meaning. This branch is unreachable below a year of history, by design.
-  if (p.deviation >= 1 && formalityExcess(s.themFormality, p) >= 0.5 && !s.mutualClose) {
-    return `You have known them ${p.familiarityLabel.toLowerCase()}, and this reply is more formal than the context would usually call for. That may indicate distance, but the message alone cannot establish the reason.`;
+  // A relationship label is not evidence of somebody's usual writing style.
+  // Require an observed contrast; punctuation alone must not imply distance.
+  if (p.deviation >= 1 && s.politenessAsymmetry >= 0.2 && formalityExcess(s.themFormality, p) >= 0.5 && !s.mutualClose) {
+    return "Their wording is more formal than yours in this excerpt. That is a difference in writing style, not proof of emotional distance or a change from how they usually speak.";
   }
 
   if (context === "work" && get(cats, "accountability_shift") >= 28) {
