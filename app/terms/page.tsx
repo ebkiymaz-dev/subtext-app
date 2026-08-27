@@ -22,7 +22,7 @@ export default function TermsPage() {
       <TermsSection title="What Subtext provides">
         Subtext identifies language and conversation patterns and offers possible readings. Results are
         possibilities, not facts about another person&apos;s thoughts, feelings, honesty, diagnosis, or intent.
-        Answer Coach provides editable communication suggestions and does not guarantee a response or outcome.
+        AnswerAce provides editable communication suggestions and does not guarantee a response or outcome.
       </TermsSection>
 
       <TermsSection title="Not professional or emergency advice">
@@ -38,8 +38,8 @@ export default function TermsPage() {
         invade privacy, facilitate unlawful activity, or control another person.
       </TermsSection>
 
-      <TermsSection title="Answer Coach and subscriptions">
-        Answer Coach is an optional subscription sold through Google Play in the Android app. The checkout
+      <TermsSection title="AnswerAce and subscriptions">
+        AnswerAce is an optional subscription sold through Google Play in the Android app. The checkout
         screen shows the current local price and billing period before purchase. Subscriptions renew
         automatically unless cancelled through Google Play. Cancellation stops future renewal; access may
         continue until the end of the paid period. Billing, cancellation, restoration, and refund eligibility

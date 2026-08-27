@@ -16,7 +16,7 @@ export async function requestPersonalizedCoach(input: {
 }): Promise<PersonalizedCoachResult> {
   const controller = new AbortController();
   const timer = window.setTimeout(
-    () => controller.abort(new DOMException("Answer Coach timed out", "TimeoutError")),
+    () => controller.abort(new DOMException("AnswerAce timed out", "TimeoutError")),
     COACH_CLIENT_TIMEOUT_MS,
   );
   try {
@@ -29,8 +29,8 @@ export async function requestPersonalizedCoach(input: {
     return await response.json() as PersonalizedCoachResult;
   } catch {
     return { ok: false, reason: controller.signal.aborted
-      ? "Answer Coach took too long to respond. Your local analysis remains available; try again shortly."
-      : "Could not reach Answer Coach. Your local analysis remains available." };
+      ? "AnswerAce took too long to respond. Your local analysis remains available; try again shortly."
+      : "Could not reach AnswerAce. Your local analysis remains available." };
   } finally {
     window.clearTimeout(timer);
   }

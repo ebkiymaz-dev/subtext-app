@@ -6,6 +6,34 @@ import { analyze } from "../lib/engine/analyze";
 import { readArchive, saveArchivedConversation, deleteArchivedConversation, type LocalProfile } from "../lib/archive";
 import { keepActiveRead, readActiveRead, clearActiveRead } from "../lib/active-read";
 import { COACH_MODEL_TIMEOUT_MS, COACH_CLIENT_TIMEOUT_MS, COACH_LEASE_SECONDS } from "../lib/coach-budget";
+import { createWorkspaceLifetime } from "../lib/workspace-lifetime";
+import { OCR_LANGUAGE_OPTIONS } from "../lib/screenshot-ocr";
+
+// Lifecycle unit checks plus architecture guards. Actual tab navigation is
+// exercised separately in the browser; these are not a substitute for that.
+function verifyWorkspaceLifetime(): void {
+  const owner = createWorkspaceLifetime();
+  const first = owner.start();
+  assert(owner.isCurrent(first), "tab visibility must not cancel pending work");
+  const replacement = owner.start();
+  assert(!owner.isCurrent(first), "older OCR result must not overwrite replacement work");
+  assert(owner.isCurrent(replacement));
+  owner.invalidate();
+  assert(!owner.isCurrent(replacement), "erasure/reset must invalidate queued work");
+  const next = owner.start();
+  assert(owner.isCurrent(next), "new conversation cannot start after reset");
+  assert(!owner.isCurrent(first), "old work revived after reset");
+  const shell = readFileSync("components/AppShell.tsx", "utf8");
+  assert.match(shell, /readerVisited \|\| reading/);
+  assert.match(shell, /hidden=\{!reading\} inert=\{!reading\}/);
+  assert.match(shell, /<ReaderWorkspace key=\{workspaceGeneration\} visible=\{reading\}/);
+  assert.doesNotMatch(shell, /key=\{pathname\}/, "navigation must not remount the workspace");
+  assert.doesNotMatch(readFileSync("app/page.tsx", "utf8"), /useState|<ReaderWorkspace/, "route-local state will be lost on navigation");
+  assert.match(readFileSync("lib/privacyControls.ts", "utf8"), /dispatchEvent\(new Event\(ERASE_WORKSPACE_EVENT\)\)/);
+  assert.match(readFileSync("components/ReaderWorkspace.tsx", "utf8"), /id="paste"\s+disabled=\{!inputReady\}/, "SSR paste must wait for hydration");
+}
+
+verifyWorkspaceLifetime();
 
 function verifyArchiveAndOrdinaryRead(): void {
   const raw = "Alex: Are we still meeting tomorrow?\nSam: Yes, noon works for me.\nAlex: Great, see you at the cafe.\nSam: Looking forward to it!";
@@ -116,6 +144,38 @@ function verifyReleaseDriftGuards(): void {
   assert.match(signer, /subtext-v\$versionCode-play\.aab/);
 }
 
+function verifyPrivateAndroidShareEntry(): void {
+  const manifest = readFileSync("android-twa/app/src/main/AndroidManifest.xml", "utf8");
+  const mainActivity = readFileSync("android-twa/app/src/main/java/com/neonjungle/subtext/MainActivity.java", "utf8");
+  const workspace = readFileSync("components/ReaderWorkspace.tsx", "utf8");
+  assert.match(manifest, /android\.intent\.action\.SEND/);
+  assert.match(manifest, /android\.intent\.action\.PROCESS_TEXT/);
+  assert.match(manifest, /android:mimeType="text\/plain"/);
+  assert.match(manifest, /android:mimeType="image\/\*"/);
+  assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_MEDIA_PROJECTION/);
+  assert.match(manifest, /android:foregroundServiceType="mediaProjection"/);
+  assert.doesNotMatch(manifest, /BIND_ACCESSIBILITY_SERVICE|AccessibilityService/);
+  assert.match(mainActivity, /addJavascriptInterface\(new ShareBridge\(\), "SubtextShare"\)/);
+  assert.match(mainActivity, /MAX_SHARED_TEXT_CHARS = 12_000/);
+  assert.match(mainActivity, /MAX_SHARED_IMAGE_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(mainActivity, /pendingSharedText = null/);
+  assert.match(mainActivity, /getCharSequenceExtra\(Intent\.EXTRA_PROCESS_TEXT\)/);
+  assert.doesNotMatch(mainActivity, /loadUrl\([^\n]*(pendingShared|EXTRA_TEXT)/, "shared text must never enter a URL");
+  assert.match(workspace, /consumePendingShare\(\)/);
+  assert.match(workspace, /Confirm the speakers and context/);
+  assert.match(workspace, /Conversation Assist/);
+  assert.match(workspace, /Subtext captures only when you tap Scan/);
+  assert.match(workspace, /uncertainAnalysisLanguage/);
+  assert(OCR_LANGUAGE_OPTIONS.length >= 101, "100-language OCR selection matrix is missing");
+  const assistant = readFileSync("android-twa/app/src/main/java/com/neonjungle/subtext/ConversationAssistantService.java", "utf8");
+  const captureStore = readFileSync("android-twa/app/src/main/java/com/neonjungle/subtext/PendingCaptureStore.java", "utf8");
+  assert.match(assistant, /FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION/);
+  assert.match(assistant, /captureRequested/);
+  assert.match(assistant, /PendingCaptureStore\.put/);
+  assert.doesNotMatch(assistant, /FileOutputStream|openFileOutput|MediaStore/);
+  assert.match(captureStore, /pending = null/);
+}
+
 function verifySecurityAndRecoverySeams(): void {
   assert(COACH_MODEL_TIMEOUT_MS <= 60_000, "model work must remain bounded");
   assert(COACH_CLIENT_TIMEOUT_MS >= COACH_MODEL_TIMEOUT_MS + 20_000, "UI must allow verification and completion time");
@@ -141,8 +201,9 @@ async function main(): Promise<void> {
   verifyRateLimit();
   await verifySingleFlight();
   verifyReleaseDriftGuards();
+  verifyPrivateAndroidShareEntry();
   verifySecurityAndRecoverySeams();
-  console.log("reliability-eval: timeouts, request controls, release drift, headers, and native recovery passed");
+  console.log("reliability-eval: timeouts, request controls, release drift, private Android sharing, headers, and native recovery passed");
 }
 
 void main();

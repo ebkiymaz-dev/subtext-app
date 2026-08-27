@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const precheckKey = createHash("sha256").update(forwarded).digest("hex");
   let precheck;
   try { precheck = await consumeRequestLimit("answer-coach-precheck", precheckKey, MAX_PRECHECKS, WINDOW_MS); }
-  catch { return json({ ok: false, reason: "Answer Coach is temporarily unavailable because its shared safety controls could not be verified." }, 503); }
+  catch { return json({ ok: false, reason: "AnswerAce is temporarily unavailable because its shared safety controls could not be verified." }, 503); }
   if (!precheck.allowed) return json({ ok: false, reason: "Too many verification attempts. Try again later." }, 429, precheck.retryAfterSeconds);
 
   let body: Record<string, unknown>;
@@ -63,8 +63,8 @@ export async function POST(request: Request) {
   const entitlement = await verifyPlayEntitlement((body.entitlement ?? {}) as EntitlementProof);
   if (!entitlement.ok) {
     const reason = entitlement.reason === "not_configured"
-      ? "Secure Google Play verification is not configured on the server yet. Answer Coach remains locked."
-      : entitlement.reason === "inactive" ? "No active Answer Coach subscription was found. Restore purchases and try again."
+      ? "Secure Google Play verification is not configured on the server yet. AnswerAce remains locked."
+      : entitlement.reason === "inactive" ? "No active AnswerAce subscription was found. Restore purchases and try again."
         : entitlement.reason === "unavailable" ? "Google Play verification is temporarily unavailable. Try again shortly."
           : "The Google Play purchase proof was not accepted.";
     return json({ ok: false, reason }, entitlement.reason === "unavailable" ? 503 : 403);
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   const rateKey = createHash("sha256").update(`${entitlement.subjectHash}:${forwarded}`).digest("hex");
   let coachLimit;
   try { coachLimit = await consumeRequestLimit("answer-coach-entitled", rateKey, MAX_REQUESTS, WINDOW_MS); }
-  catch { return json({ ok: false, reason: "Answer Coach is temporarily unavailable because its shared safety controls could not be verified." }, 503); }
+  catch { return json({ ok: false, reason: "AnswerAce is temporarily unavailable because its shared safety controls could not be verified." }, 503); }
   if (!coachLimit.allowed) return json({ ok: false, reason: "You have reached the hourly Coach limit. Take a pause and return later." }, 429, coachLimit.retryAfterSeconds);
 
   const provider = resolveCoachProvider();
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   try {
     const checked = await runControlledIdempotent(requestKey, async () => {
       const parsed = await callModel(provider, prompt);
-      return validatePersonalizedCoach(parsed, transcript);
+      return validatePersonalizedCoach(parsed, transcript, context);
     }, (value) => value.coach ? "ok" : "validation_failed");
     if (!checked.coach) return json({ ok: false, reason: `The coaching draft failed its evidence checks (${checked.fatal}). Nothing unsupported was shown.`, repairs: checked.repairs }, 422);
     return json({ ok: true, coach: checked.coach, provider: provider.label, model: provider.model, repairs: checked.repairs });
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       return json({ ok: false, reason }, 409, error.retryAfterSeconds || undefined);
     }
     if (error instanceof RequestControlUnavailableError) {
-      return json({ ok: false, reason: "Answer Coach is temporarily unavailable because its shared safety controls could not be verified." }, 503);
+      return json({ ok: false, reason: "AnswerAce is temporarily unavailable because its shared safety controls could not be verified." }, 503);
     }
     const category = error instanceof Error ? error.message.slice(0, 100) : "provider error";
     console.error(`[answer-coach] ${provider.provider}: ${category}`);

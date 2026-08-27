@@ -469,6 +469,37 @@ export function buildCoach(
   const otherName = transcript.messages.find((m) => m.speaker === "them")?.name;
   const greeting = otherName && !/^(them|other|unknown)$/i.test(otherName) ? `${otherName}, ` : "";
 
+  // Situation beats relationship category. A polite sign-off should never be
+  // turned into an invitation to seek reassurance merely because the context
+  // is dating. Give the least escalatory, most ordinary options first.
+  if (s.softClose) {
+    return [
+      {
+        mode: "clear",
+        action: "You can leave the exchange here",
+        reasoning:
+          "The compliment was acknowledged and the conversation ended politely. Nothing in this excerpt requires another message, and silence here is not a tactic or a verdict.",
+      },
+      {
+        mode: "warm",
+        action: "If you want to answer, simply match the sign-off",
+        suggestedReply: "Good night 😊",
+        reasoning:
+          "A brief matched sign-off stays warm without reopening the compliment or asking the other person to explain a normal ending.",
+      },
+    ];
+  }
+
+  if (s.uptakeRate >= 0.65 && s.unreciprocated.length === 0 && s.longestRun.you <= 2) {
+    out.push({
+      mode: "warm",
+      action: "Match the clear, cooperative tone",
+      suggestedReply: `${greeting}thanks — that works for me.`,
+      reasoning:
+        "The exchange is reciprocal and the other person is answering what was asked. A short acknowledgment preserves that rhythm without adding pressure or inventing a concern.",
+    });
+  }
+
   // Start with wording that fits the real-world relationship. These are
   // editable options, not verdicts about the other person or tactics for
   // controlling them. The user keeps the final choice.
@@ -583,23 +614,6 @@ export function buildCoach(
         reasoning:
           "This avoids pretending to know the other person’s motives. It makes the user’s need answerable and leaves room for correction.",
       });
-  }
-
-  if (s.softClose) {
-    const bid = s.bids.find((b) => b.by === "you" && b.response === "minimal");
-    out.push({
-      mode: "clear",
-      action: "You could let the next move be theirs.",
-      reasoning:
-        "You offered something warm and it was acknowledged without being continued. If there is no practical deadline, one option is to pause so you can decide what you want without adding pressure.",
-      evidenceMessageId: bid?.responseMessageId ?? undefined,
-    });
-    out.push({
-      mode: "clear",
-      action: "If you do write again, make it about something other than the compliment.",
-      reasoning:
-        "Re-raising it may put pressure on both sides. If you want to continue, a neutral topic is one option; asking directly and respectfully is another. Choose the approach that fits your goal and safety.",
-    });
   }
 
   // Coach optimises the USER's conduct, so the first thing it looks at is

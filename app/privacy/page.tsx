@@ -29,7 +29,7 @@ export default function PrivacyPage() {
 
       <PolicySection title="Information handled on your device">
         <p>
-          Your pasted conversation, speaker choice, relationship context, and the standard analysis
+          Your pasted or Android-shared conversation, speaker choice, relationship context, and the standard analysis
           are processed on your device. Subtext stores a month identifier, read count,
           explicitly completed-read count, and aggregate feature-completion counters in browser storage. The
           counters contain event names and totals only—never conversation text, names, or URLs.
@@ -40,11 +40,25 @@ export default function PrivacyPage() {
           the app or browser storage. Unsaved reads remain in page memory only and disappear when the
           active read is cleared or the app process ends.
         </p>
+        <p className="mt-3">
+          On Android, you can deliberately choose Subtext from another app&apos;s Share menu for selected
+          text or a screenshot. Android hands that one selected item to Subtext in memory. Subtext does
+          not request accessibility, screen-overlay, contacts, SMS, notification-reading, or background
+          surveillance permissions, and shared content is not placed in a URL or automatically archived.
+        </p>
+        <p className="mt-3">
+          Android Conversation Assist is a separate, optional screen-capture session. Android asks for
+          consent before each session and Subtext keeps a visible control and foreground-service notification
+          while the session is active. Subtext takes a frame only after you press “Scan,” processes that frame
+          on the device, and transfers it through process memory to the reader. It does not use Accessibility
+          Service, bypass protected screens, continuously archive frames, automatically send messages, or
+          submit a captured conversation to AnswerAce without a separate request.
+        </p>
       </PolicySection>
 
-      <PolicySection title="Answer Coach and Google Play billing">
+      <PolicySection title="AnswerAce and Google Play billing">
         <p>
-          In the Android app, Answer Coach is an optional Google Play subscription. Google Play
+          In the Android app, AnswerAce is an optional Google Play subscription. Google Play
           handles checkout, payment details, renewals, cancellation, and purchase restoration.
           Subtext does not receive or store your card or bank details. When you request coaching,
           the Android app supplies a purchase token to the Subtext server. The server verifies it with
@@ -53,16 +67,16 @@ export default function PrivacyPage() {
         </p>
       </PolicySection>
 
-      <PolicySection title="Optional AI-assisted Answer Coach">
+      <PolicySection title="Optional AI-assisted AnswerAce">
         <p>
-          If you choose Answer Coach, the conversation text, relationship context, stated goal, preferred
+          If you choose AnswerAce, the conversation text, relationship context, stated goal, preferred
           tone, speaker name, and any optional stakes or non-negotiable you entered are transmitted over
           HTTPS to the Subtext server and then to the configured model provider. This is used to return
           the coaching you requested. The application code does not write that request content to a
           conversation database or intentionally include it in application logs. It is handled in memory
           for the request and response. Hosting and model providers may handle it under their then-current
           terms and retention practices; Subtext does not claim a shorter provider retention period unless
-          it is shown in the in-app disclosure. Do not use Answer Coach for text you do not want transmitted.
+          it is shown in the in-app disclosure. Do not use AnswerAce for text you do not want transmitted.
         </p>
       </PolicySection>
 
@@ -71,8 +85,10 @@ export default function PrivacyPage() {
           Hosting and network providers may receive standard request information such as IP address,
           device or browser type, request time, requested URL, and diagnostic or security logs. This
           information is used to operate, secure, and troubleshoot the service. Subtext does not use
-          advertising trackers or request contacts, location, microphone, camera, SMS, or call-log
-          permissions in this release.
+          advertising trackers or request contacts, location, microphone, camera, SMS, call-log, or
+          Accessibility Service permissions in this release. Conversation Assist declares Android&apos;s
+          screen-capture foreground-service and overlay capabilities so its user-controlled Scan button can
+          remain visible during an explicitly approved capture session.
         </p>
       </PolicySection>
 
@@ -80,10 +96,10 @@ export default function PrivacyPage() {
         <div className="space-y-3">
           <p>
           Information is transmitted only to vendors needed to host, secure, bill for, or deliver a
-          feature you request, including the configured model provider for Answer Coach. Whether a
+          feature you request, including the configured model provider for AnswerAce. Whether a
           vendor qualifies as a processor or service provider depends on its then-current contract and
           practices; this policy does not assume a status that has not been confirmed. Subtext does not
-          sell personal or sensitive information. Answer Coach conversation content is not intentionally
+          sell personal or sensitive information. AnswerAce conversation content is not intentionally
           persisted by the Subtext application after the response is returned.
           </p>
           <p>

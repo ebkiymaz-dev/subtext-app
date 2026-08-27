@@ -1,5 +1,6 @@
 import { clearActiveRead } from "./active-read";
 import { BASE_PATH } from "./basePath";
+import { ERASE_WORKSPACE_EVENT } from "./workspace-lifetime";
 
 const SUBTEXT_LOCAL_KEYS = new Set([
   "subtext_local_profile_v1",
@@ -28,6 +29,8 @@ export async function eraseAllSubtextData(): Promise<void> {
   if (typeof window === "undefined") return;
 
   clearActiveRead();
+  // Erasure must also clear retained UI and invalidate pending OCR/Coach work.
+  window.dispatchEvent(new Event(ERASE_WORKSPACE_EVENT));
   removeMatchingKeys(window.localStorage, SUBTEXT_LOCAL_KEYS, ["subtext.", "subtext_"]);
   removeMatchingKeys(window.sessionStorage, SUBTEXT_SESSION_KEYS, ["subtext.", "subtext_", "sbt"]);
 

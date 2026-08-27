@@ -1,12 +1,27 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BASE_PATH } from "@/lib/basePath";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ReaderWorkspace from "./ReaderWorkspace";
+import { ERASE_WORKSPACE_EVENT } from "@/lib/workspace-lifetime";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const reading = pathname === "/";
+  const [readerVisited, setReaderVisited] = useState(reading);
+  const [workspaceGeneration, setWorkspaceGeneration] = useState(0);
+
+  useEffect(() => { if (reading) setReaderVisited(true); }, [reading]);
+  useEffect(() => {
+    const eraseWorkspace = () => {
+      setReaderVisited(false);
+      setWorkspaceGeneration((generation) => generation + 1);
+    };
+    window.addEventListener(ERASE_WORKSPACE_EVENT, eraseWorkspace);
+    return () => window.removeEventListener(ERASE_WORKSPACE_EVENT, eraseWorkspace);
+  }, []);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -61,13 +76,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 pathname === "/plans" ? "text-sbt-ink" : "text-sbt-mute hover:text-sbt-ink"
               }`}
             >
-              Coach
+              AnswerAce
             </Link>
           </nav>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 sm:pb-16 sm:pt-6">
+        {/* Keep the same mounted instance, including file input, open details,
+            corrections and pending async work. Hidden content is not focusable
+            or exposed to assistive tech. No automatic archive/storage writes. */}
+        {readerVisited || reading ? (
+          <div hidden={!reading} inert={!reading} data-subtext-workspace>
+            <ReaderWorkspace key={workspaceGeneration} visible={reading} />
+          </div>
+        ) : null}
         {children}
       </main>
 
@@ -98,7 +121,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] ${pathname.startsWith("/plans") ? "text-sbt-gold-700" : "text-sbt-mute"}`}
         >
           <span aria-hidden className="text-base">✦</span>
-          Coach
+          AnswerAce
         </Link>
       </nav>
 
@@ -109,7 +132,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             you what someone meant. It shows you which markers are present and where.
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-widest text-sbt-mute/70">
-            <p>private by default · archive and Answer Coach are always optional</p>
+            <p>private by default · archive and AnswerAce are always optional</p>
             <Link href="/privacy" className="underline underline-offset-2 hover:text-sbt-dusk">
               Privacy policy
             </Link>

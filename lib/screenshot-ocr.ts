@@ -7,28 +7,48 @@ export type ScreenshotRead = {
   participants: string[];
 };
 
+// Official Tesseract language-model codes. Models are downloaded only after a
+// user chooses one; loading 100+ models into the app or automatic mode would be
+// punishing on mobile data and memory.
+const OCR_LANGUAGE_MODELS = [
+  ["afr", "Afrikaans"], ["amh", "Amharic"], ["ara", "Arabic"], ["asm", "Assamese"],
+  ["aze", "Azerbaijani"], ["aze_cyrl", "Azerbaijani — Cyrillic"], ["bel", "Belarusian"],
+  ["ben", "Bengali"], ["bod", "Tibetan"], ["bos", "Bosnian"], ["bre", "Breton"],
+  ["bul", "Bulgarian"], ["cat", "Catalan / Valencian"], ["ceb", "Cebuano"],
+  ["ces", "Czech"], ["chi_sim", "Chinese — Simplified"], ["chi_tra", "Chinese — Traditional"],
+  ["chr", "Cherokee"], ["cym", "Welsh"], ["dan", "Danish"], ["deu", "German"],
+  ["dzo", "Dzongkha"], ["ell", "Greek"], ["eng", "English"], ["epo", "Esperanto"],
+  ["est", "Estonian"], ["eus", "Basque"], ["fas", "Persian"], ["fin", "Finnish"],
+  ["fra", "French"], ["gle", "Irish"], ["glg", "Galician"], ["guj", "Gujarati"],
+  ["hat", "Haitian Creole"], ["heb", "Hebrew"], ["hin", "Hindi"], ["hrv", "Croatian"],
+  ["hun", "Hungarian"], ["iku", "Inuktitut"], ["ind", "Indonesian"], ["isl", "Icelandic"],
+  ["ita", "Italian"], ["jav", "Javanese"], ["jpn", "Japanese"], ["kan", "Kannada"],
+  ["kat", "Georgian"], ["kaz", "Kazakh"], ["khm", "Khmer"], ["kir", "Kyrgyz"],
+  ["kmr", "Kurdish — Kurmanji"], ["kor", "Korean"], ["kur", "Kurdish"], ["lao", "Lao"],
+  ["lat", "Latin"], ["lav", "Latvian"], ["lit", "Lithuanian"], ["ltz", "Luxembourgish"],
+  ["mal", "Malayalam"], ["mar", "Marathi"], ["mkd", "Macedonian"], ["mlt", "Maltese"],
+  ["mon", "Mongolian"], ["mri", "Māori"], ["msa", "Malay"], ["mya", "Burmese"],
+  ["nep", "Nepali"], ["nld", "Dutch / Flemish"], ["nor", "Norwegian"], ["oci", "Occitan"],
+  ["ori", "Odia"], ["pan", "Punjabi"], ["pol", "Polish"], ["por", "Portuguese"],
+  ["pus", "Pashto"], ["que", "Quechua"], ["ron", "Romanian / Moldovan"], ["rus", "Russian"],
+  ["san", "Sanskrit"], ["sin", "Sinhala"], ["slk", "Slovak"], ["slv", "Slovenian"],
+  ["snd", "Sindhi"], ["spa", "Spanish"], ["sqi", "Albanian"], ["srp", "Serbian — Cyrillic"],
+  ["srp_latn", "Serbian — Latin"], ["sun", "Sundanese"], ["swa", "Swahili"],
+  ["swe", "Swedish"], ["syr", "Syriac"], ["tam", "Tamil"], ["tat", "Tatar"],
+  ["tel", "Telugu"], ["tgk", "Tajik"], ["tgl", "Tagalog"], ["tha", "Thai"],
+  ["tir", "Tigrinya"], ["ton", "Tongan"], ["tur", "Turkish"], ["uig", "Uyghur"],
+  ["ukr", "Ukrainian"], ["urd", "Urdu"], ["uzb", "Uzbek — Latin"],
+  ["uzb_cyrl", "Uzbek — Cyrillic"], ["vie", "Vietnamese"], ["yid", "Yiddish"],
+  ["yor", "Yoruba"],
+] as const;
+
 export const OCR_LANGUAGE_OPTIONS = [
   { value: "auto", label: "Automatic — English, 中文, 日本語, Русский", trainedData: "eng+chi_sim+chi_tra+jpn+rus" },
-  { value: "eng", label: "English / Latin alphabet", trainedData: "eng" },
-  { value: "chi", label: "中文 — Chinese", trainedData: "chi_sim+chi_tra+eng" },
-  { value: "jpn", label: "日本語 — Japanese", trainedData: "jpn+eng" },
-  { value: "rus", label: "Русский — Russian", trainedData: "rus+eng" },
-  { value: "kor", label: "한국어 — Korean", trainedData: "kor+eng" },
-  { value: "ara", label: "العربية — Arabic", trainedData: "ara+eng" },
-  { value: "hin", label: "हिन्दी — Hindi", trainedData: "hin+eng" },
-  { value: "ben", label: "বাংলা — Bengali", trainedData: "ben+eng" },
-  { value: "tha", label: "ไทย — Thai", trainedData: "tha+eng" },
-  { value: "heb", label: "עברית — Hebrew", trainedData: "heb+eng" },
-  { value: "fas", label: "فارسی — Persian", trainedData: "fas+eng" },
-  { value: "ukr", label: "Українська — Ukrainian", trainedData: "ukr+eng" },
-  { value: "vie", label: "Tiếng Việt — Vietnamese", trainedData: "vie+eng" },
-  { value: "spa", label: "Español — Spanish", trainedData: "spa+eng" },
-  { value: "fra", label: "Français — French", trainedData: "fra+eng" },
-  { value: "deu", label: "Deutsch — German", trainedData: "deu+eng" },
-  { value: "por", label: "Português — Portuguese", trainedData: "por+eng" },
-  { value: "ita", label: "Italiano — Italian", trainedData: "ita+eng" },
-  { value: "tur", label: "Türkçe — Turkish", trainedData: "tur+eng" },
-  { value: "ind", label: "Bahasa Indonesia", trainedData: "ind+eng" },
+  ...OCR_LANGUAGE_MODELS.map(([value, label]) => ({
+    value,
+    label,
+    trainedData: value === "eng" ? "eng" : `${value}+eng`,
+  })),
 ] as const;
 
 export type OcrLanguage = (typeof OCR_LANGUAGE_OPTIONS)[number]["value"];

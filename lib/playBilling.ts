@@ -36,7 +36,7 @@ const WEB_STATE: PlayBillingState = {
   android: false,
   status: "unavailable",
   entitled: false,
-  message: "Answer Coach subscriptions are available in the Android app.",
+  message: "AnswerAce subscriptions are available in the Android app.",
 };
 
 function parseState(raw: string): PlayBillingState {

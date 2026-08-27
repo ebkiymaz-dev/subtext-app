@@ -2,7 +2,7 @@
 
 Updated: 2026-08-26
 
-This copy is intentionally limited to behavior present in the current release candidate. Do not describe Answer Coach as available in production until its Google Play entitlement and model-provider launch gates pass.
+This copy is intentionally limited to behavior present in the current release candidate. Do not describe AnswerAce as available in production until its Google Play entitlement and model-provider launch gates pass.
 
 ## Console fields
 
@@ -36,9 +36,9 @@ The free conversation reader runs on your device and shows:
 
 Subtext accepts names written in many scripts. Screenshot OCR assistance supports English, Chinese, Japanese, and Russian text. The current analysis and guidance are written in English; Subtext is not a translation app.
 
-The Android app also includes optional paid Answer Coach access when available through Google Play. Answer Coach considers the conversation, your stated goal, preferred tone, and anything your reply should protect. It provides editable reply options with reasons and tradeoffs. The free reader remains available without a subscription.
+The Android app also includes optional paid AnswerAce access when available through Google Play. AnswerAce considers the conversation, your stated goal, preferred tone, and anything your reply should protect. It provides editable reply options with reasons and tradeoffs. The free reader remains available without a subscription.
 
-The privacy boundary is clear: standard conversation analysis happens on your device. Nothing is added to the private archive unless you choose to save it. When you deliberately request Answer Coach, the selected conversation and the context you provide are sent securely to the disclosed model provider for that requested analysis. Subtext does not intentionally retain the conversation.
+The privacy boundary is clear: standard conversation analysis happens on your device. Nothing is added to the private archive unless you choose to save it. When you deliberately request AnswerAce, the selected conversation and the context you provide are sent securely to the disclosed model provider for that requested analysis. Subtext does not intentionally retain the conversation.
 
 Subtext is not a lie detector, therapist, diagnostic service, or emergency service. It cannot prove intent or guarantee an outcome. It reads language patterns, presents alternatives, and helps you decide what fits your situation.
 
@@ -58,7 +58,7 @@ Use current Android captures only. The existing screenshots dated 2026-08-18 sho
    - Show highlighted lines and the expanded evidence section.
 5. **Private archive** — `Save privately on this device — or not at all.`
    - Show the optional archive and its local-only explanation.
-6. **Answer Coach** — `Optional replies shaped around your goal.`
+6. **AnswerAce** — `Optional replies shaped around your goal.`
    - Include only after a real Google Play purchase, entitlement verification, and Coach generation pass on the release candidate. Mark it `Optional paid feature` in the artwork.
 
 Screenshot overlay rules:
@@ -75,7 +75,7 @@ Screenshot overlay rules:
 
 ```text
 <en-US>
-Improves the mobile reading flow, speaker confirmation, group-chat handling, evidence-based explanations, private local archive, and optional Answer Coach purchase and restore paths. Core conversation analysis remains free and runs on your device.
+Improves the mobile reading flow, speaker confirmation, group-chat handling, evidence-based explanations, private local archive, and optional AnswerAce purchase and restore paths. Core conversation analysis remains free and runs on your device.
 </en-US>
 ```
 
@@ -83,17 +83,17 @@ Improves the mobile reading flow, speaker confirmation, group-chat handling, evi
 
 ```text
 <en-US>
-First public release of Subtext: paste a conversation or upload a screenshot, confirm the speakers, and review evidence-based readings and alternatives. Includes an optional private local archive and optional paid Answer Coach on supported Android devices.
+First public release of Subtext: paste a conversation or upload a screenshot, confirm the speakers, and review evidence-based readings and alternatives. Includes an optional private local archive and optional paid AnswerAce on supported Android devices.
 </en-US>
 ```
 
-Use the production notes only after Answer Coach passes its production gate. If Coach is not enabled at submission time, remove the final clause beginning `and optional paid Answer Coach`.
+Use the production notes only after AnswerAce passes its production gate. If AnswerAce is not enabled at submission time, remove the final clause beginning `and optional paid AnswerAce`.
 
 ## Reviewer note
 
 Subtext is a Trusted Web Activity for the developer-owned app at `https://neonjungletools.com/subtext/`. No account is required. Reviewers can choose the included sample conversation instead of entering personal text. The free reader runs locally in the browser. Multilingual speaker names and OCR-assisted English, Chinese, Japanese, and Russian screenshot text are supported, but analysis is currently written in English. Group conversations allow the reviewer to confirm participants and choose a focus person. Acute-distress language replaces interpretation with a safety-oriented care path.
 
-If Answer Coach is enabled for review, provide an active Google Play license-test account and exact purchase/restore instructions in App access. If it is not enabled, do not ask the reviewer to test or accept claims about the paid feature.
+If AnswerAce is enabled for review, provide an active Google Play license-test account and exact purchase/restore instructions in App access. If it is not enabled, do not ask the reviewer to test or accept claims about the paid feature.
 
 ## App-content answers
 
@@ -111,8 +111,8 @@ If Answer Coach is enabled for review, provide an active Google Play license-tes
 
 Answer from the final deployed behavior and vendor contracts, not this draft alone.
 
-- **Does the app collect or share user data?** Answer conservatively. Standard analysis remains on-device, but selected conversation text leaves the device when a user deliberately requests Answer Coach.
-- **Other user-generated content:** Optional for Answer Coach; purpose: app functionality; encrypted in transit; Subtext does not intentionally retain it. Confirm whether Google treats the model provider as collection, sharing, or a service provider under the current Data Safety definitions.
+- **Does the app collect or share user data?** Answer conservatively. Standard analysis remains on-device, but selected conversation text leaves the device when a user deliberately requests AnswerAce.
+- **Other user-generated content:** Optional for AnswerAce; purpose: app functionality; encrypted in transit; Subtext does not intentionally retain it. Confirm whether Google treats the model provider as collection, sharing, or a service provider under the current Data Safety definitions.
 - **Diagnostics/security:** Declare any hosting, fraud-prevention, billing, or server logs actually retained in production.
 - **Purchase data:** Google Play handles payment details. The Subtext server receives purchase proof for entitlement verification; declare it if required by the final implementation and Google policy.
 - **Device or other IDs:** Do not declare “none” if launch analytics introduces a persistent installation identifier.

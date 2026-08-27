@@ -18,6 +18,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="com.android.vending.BILLING" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
 
 
@@ -154,13 +157,30 @@
                 />
             </intent-filter>
 
+            <!-- Play-safe entry point from messaging apps. Android hands the
+                 selected item to Subtext only after the user taps Share. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+
 
 
 
         </activity>
-
-        <!-- Share import remains disabled until text can cross the native/web
-             boundary without appearing in a URL, request log, or cache key. -->
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
 
@@ -189,6 +209,11 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>
+
+        <service
+            android:name=".ConversationAssistantService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
 
 

@@ -1,13 +1,16 @@
 package com.neonjungle.subtext;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -45,6 +48,9 @@ import com.android.billingclient.api.QueryPurchasesParams;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 
@@ -52,6 +58,9 @@ import java.util.List;
 public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private static final String COACH_PRODUCT_ID = "answer_coach_premium";
     private static final int FILE_CHOOSER_REQUEST = 4104;
+    private static final int SCREEN_CAPTURE_REQUEST = 4105;
+    private static final int MAX_SHARED_TEXT_CHARS = 12_000;
+    private static final int MAX_SHARED_IMAGE_BYTES = 8 * 1024 * 1024;
     private WebView webView;
     private FrameLayout rootView;
     private View launchOverlay;
@@ -66,6 +75,12 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private String billingPrice;
     private boolean coachEntitled;
     private String coachPurchaseToken;
+    private final Object shareLock = new Object();
+    private String pendingSharedText;
+    private boolean pendingSharedTextTruncated;
+    private Uri pendingSharedImage;
+    private String pendingSharedImageType;
+    private byte[] pendingSharedImageBytes;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -114,6 +129,10 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         webView.addJavascriptInterface(new BillingBridge(), "SubtextBilling");
+        webView.addJavascriptInterface(new ShareBridge(), "SubtextShare");
+        webView.addJavascriptInterface(new AssistantBridge(), "SubtextAssistant");
+        captureShareIntent(getIntent());
+        captureAssistantIntent(getIntent());
         initializeBilling();
 
         webView.setWebViewClient(new WebViewClient() {
@@ -326,7 +345,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         billingClient.queryProductDetailsAsync(params, (result, detailsResult) -> {
             if (result.getResponseCode() != BillingClient.BillingResponseCode.OK
                     || detailsResult.getProductDetailsList().isEmpty()) {
-                setBillingError("Answer Coach is not available in Google Play yet.");
+                setBillingError("AnswerAce is not available in Google Play yet.");
                 return;
             }
             coachProduct = detailsResult.getProductDetailsList().get(0);
@@ -342,7 +361,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private void purchaseAnswerCoach() {
         runOnUiThread(() -> {
             if (coachEntitled) {
-                billingMessage = "Answer Coach is already active.";
+                billingMessage = "AnswerAce is already active.";
                 publishBillingState();
                 return;
             }
@@ -353,7 +372,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
             }
             List<ProductDetails.SubscriptionOfferDetails> offers = coachProduct.getSubscriptionOfferDetails();
             if (offers == null || offers.isEmpty()) {
-                setBillingError("No eligible Answer Coach subscription offer was found.");
+                setBillingError("No eligible AnswerAce subscription offer was found.");
                 return;
             }
             BillingFlowParams.ProductDetailsParams item = BillingFlowParams.ProductDetailsParams.newBuilder()
@@ -423,9 +442,9 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         coachPurchaseToken = purchased ? purchaseToken : null;
         billingStatus = purchased ? "purchased" : pending ? "pending" : "ready";
         billingMessage = purchased
-                ? "Answer Coach unlocked. Thank you."
-                : pending ? "Payment is pending. Answer Coach unlocks after Google Play confirms it."
-                : "No active Answer Coach subscription was found.";
+                ? "AnswerAce unlocked. Thank you."
+                : pending ? "Payment is pending. AnswerAce unlocks after Google Play confirms it."
+                : "No active AnswerAce subscription was found.";
         publishBillingState();
     }
 
@@ -452,6 +471,24 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         final String json = billingState().toString();
         runOnUiThread(() -> webView.evaluateJavascript(
                 "window.dispatchEvent(new CustomEvent('subtext:billing',{detail:JSON.parse(" + JSONObject.quote(json) + ")}));",
+                null
+        ));
+    }
+
+    private JSONObject assistantState() {
+        JSONObject state = new JSONObject();
+        try {
+            state.put("android", true);
+            state.put("active", ConversationAssistantService.isRunning());
+        } catch (JSONException ignored) { }
+        return state;
+    }
+
+    private void publishAssistantState() {
+        if (webView == null || !pageShown) return;
+        final String json = assistantState().toString();
+        runOnUiThread(() -> webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('subtext:assistant',{detail:JSON.parse(" + JSONObject.quote(json) + ")}));",
                 null
         ));
     }
@@ -491,6 +528,183 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         }
     }
 
+    /**
+     * One-time, in-memory handoff from Android's Share sheet to the reader.
+     * Shared conversations never become a URL, cache key, log line, or file.
+     */
+    private final class ShareBridge {
+        @JavascriptInterface
+        public String consumePendingShare() {
+            String text;
+            boolean truncated;
+            Uri image;
+            String imageType;
+            byte[] imageBytes;
+            synchronized (shareLock) {
+                text = pendingSharedText;
+                truncated = pendingSharedTextTruncated;
+                image = pendingSharedImage;
+                imageType = pendingSharedImageType;
+                imageBytes = pendingSharedImageBytes;
+                pendingSharedText = null;
+                pendingSharedTextTruncated = false;
+                pendingSharedImage = null;
+                pendingSharedImageType = null;
+                pendingSharedImageBytes = null;
+            }
+
+            JSONObject payload = new JSONObject();
+            try {
+                if (text != null) {
+                    payload.put("kind", "text");
+                    payload.put("text", text);
+                    payload.put("truncated", truncated);
+                } else if (image != null || imageBytes != null) {
+                    byte[] bytes = imageBytes != null ? imageBytes : readSharedImage(image);
+                    payload.put("kind", "image");
+                    payload.put("type", imageType == null ? "image/jpeg" : imageType);
+                    payload.put("name", sharedImageName(imageType));
+                    payload.put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP));
+                } else {
+                    payload.put("kind", "none");
+                }
+            } catch (ShareTooLargeException error) {
+                putShareError(payload, "That shared screenshot is over 8 MB. Crop it and share it again.");
+            } catch (IOException | SecurityException error) {
+                putShareError(payload, "Subtext could not read that shared screenshot. Save it to Photos, then upload it inside Subtext.");
+            } catch (JSONException ignored) {
+                return "{\"kind\":\"error\",\"message\":\"Subtext could not open the shared item.\"}";
+            }
+            return payload.toString();
+        }
+    }
+
+    private final class AssistantBridge {
+        @JavascriptInterface
+        public String getState() {
+            return assistantState().toString();
+        }
+
+        @JavascriptInterface
+        public void startConversationAssist() {
+            runOnUiThread(() -> requestConversationAssistant());
+        }
+
+        @JavascriptInterface
+        public void stopConversationAssist() {
+            runOnUiThread(() -> {
+                stopService(new Intent(MainActivity.this, ConversationAssistantService.class));
+                publishAssistantState();
+            });
+        }
+    }
+
+    private void requestConversationAssistant() {
+        if (ConversationAssistantService.isRunning()) {
+            publishAssistantState();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Turn on Conversation Assist?")
+                .setMessage("While this session is on, Android lets Subtext view your screen. Subtext captures a screenshot only when you tap Scan. The screenshot is analyzed on this device, is not automatically saved, and is never sent to AnswerAce unless you separately request coaching. Protected screens remain protected. Stop anytime from the Subtext control or notification.")
+                .setNegativeButton("Not now", null)
+                .setPositiveButton("Continue", (dialog, which) -> {
+                    MediaProjectionManager manager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+                    startActivityForResult(manager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST);
+                })
+                .show();
+    }
+
+    private void captureAssistantIntent(Intent intent) {
+        if (intent == null || !ConversationAssistantService.ACTION_ANALYZE_CAPTURE.equals(intent.getAction())) return;
+        PendingCaptureStore.Item item = PendingCaptureStore.take();
+        if (item == null || item.bytes == null) return;
+        synchronized (shareLock) {
+            pendingSharedText = null;
+            pendingSharedTextTruncated = false;
+            pendingSharedImage = null;
+            pendingSharedImageType = item.type;
+            pendingSharedImageBytes = item.bytes;
+        }
+    }
+
+    private void captureShareIntent(Intent intent) {
+        if (intent == null || (!Intent.ACTION_SEND.equals(intent.getAction())
+                && !Intent.ACTION_PROCESS_TEXT.equals(intent.getAction()))) return;
+        String type = intent.getType();
+        synchronized (shareLock) {
+            pendingSharedText = null;
+            pendingSharedTextTruncated = false;
+            pendingSharedImage = null;
+            pendingSharedImageType = null;
+            pendingSharedImageBytes = null;
+
+            if ("text/plain".equalsIgnoreCase(type)) {
+                CharSequence sharedValue = Intent.ACTION_PROCESS_TEXT.equals(intent.getAction())
+                        ? intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)
+                        : intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+                String shared = sharedValue == null ? null : sharedValue.toString();
+                if (shared != null && !shared.trim().isEmpty()) {
+                    pendingSharedTextTruncated = shared.length() > MAX_SHARED_TEXT_CHARS;
+                    pendingSharedText = pendingSharedTextTruncated
+                            ? shared.substring(0, MAX_SHARED_TEXT_CHARS)
+                            : shared;
+                }
+                return;
+            }
+
+            if (type != null && type.toLowerCase(java.util.Locale.ROOT).startsWith("image/")) {
+                Uri sharedImage;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    sharedImage = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+                } else {
+                    //noinspection deprecation
+                    sharedImage = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                }
+                if (sharedImage == null && intent.getClipData() != null && intent.getClipData().getItemCount() > 0) {
+                    sharedImage = intent.getClipData().getItemAt(0).getUri();
+                }
+                if (sharedImage != null && "content".equalsIgnoreCase(sharedImage.getScheme())) {
+                    pendingSharedImage = sharedImage;
+                    String resolvedType = getContentResolver().getType(sharedImage);
+                    pendingSharedImageType = resolvedType != null ? resolvedType : type;
+                }
+            }
+        }
+    }
+
+    private byte[] readSharedImage(Uri uri) throws IOException, ShareTooLargeException {
+        try (InputStream input = getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            if (input == null) throw new IOException("Shared image stream unavailable");
+            byte[] buffer = new byte[16 * 1024];
+            int total = 0;
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                total += count;
+                if (total > MAX_SHARED_IMAGE_BYTES) throw new ShareTooLargeException();
+                output.write(buffer, 0, count);
+            }
+            return output.toByteArray();
+        }
+    }
+
+    private String sharedImageName(String type) {
+        if ("image/png".equalsIgnoreCase(type)) return "shared-screenshot.png";
+        if ("image/webp".equalsIgnoreCase(type)) return "shared-screenshot.webp";
+        if ("image/heic".equalsIgnoreCase(type) || "image/heif".equalsIgnoreCase(type)) return "shared-screenshot.heic";
+        return "shared-screenshot.jpg";
+    }
+
+    private void putShareError(JSONObject payload, String message) {
+        try {
+            payload.put("kind", "error");
+            payload.put("message", message);
+        } catch (JSONException ignored) { }
+    }
+
+    private static final class ShareTooLargeException extends Exception { }
+
     private boolean openOutsideIfNeeded(Uri uri) {
         String host = uri.getHost();
         String path = uri.getPath();
@@ -519,6 +733,8 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        captureShareIntent(intent);
+        captureAssistantIntent(intent);
         if (webView != null) webView.loadUrl(urlFromIntent(intent));
     }
 
@@ -526,6 +742,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     protected void onResume() {
         super.onResume();
         restorePurchases();
+        publishAssistantState();
     }
 
     @Override
@@ -536,6 +753,20 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == SCREEN_CAPTURE_REQUEST) {
+            if (resultCode == RESULT_OK && data != null) {
+                Intent service = new Intent(this, ConversationAssistantService.class)
+                        .setAction(ConversationAssistantService.ACTION_START)
+                        .putExtra(ConversationAssistantService.EXTRA_RESULT_CODE, resultCode)
+                        .putExtra(ConversationAssistantService.EXTRA_RESULT_DATA, data);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service);
+                else startService(service);
+                webView.postDelayed(this::publishAssistantState, 500);
+            } else {
+                publishAssistantState();
+            }
+            return;
+        }
         if (requestCode == FILE_CHOOSER_REQUEST) {
             if (fileCallback != null) {
                 fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
