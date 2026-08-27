@@ -3,7 +3,7 @@
 // only when the user explicitly saves it to their optional private archive.
 const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
 const CACHE_PREFIX = "subtext-shell-";
-const CACHE = CACHE_PREFIX + "v32";
+const CACHE = CACHE_PREFIX + "v33";
 const SHELL = [
   BASE + "/",
   BASE + "/plans",
