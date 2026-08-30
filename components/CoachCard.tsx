@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BASE_PATH } from "@/lib/basePath";
 import { COACH_GOALS, type CoachGoalId, type PersonalizedCoachResult } from "@/lib/engine/answerCoach";
+import { recordProductEvent } from "@/lib/product-events";
 
 export default function CoachCard({ locked, state, result, goal, onUnlock, onRun }: {
   locked: boolean;
@@ -63,6 +64,17 @@ export default function CoachCard({ locked, state, result, goal, onUnlock, onRun
 
 function CoachResult({ result }: { result: PersonalizedCoachResult }) {
   const coach = result.coach!;
+  const [copiedReply, setCopiedReply] = useState<number | null>(null);
+  async function copyReply(text: string, index: number) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedReply(index);
+      recordProductEvent("answer_reply_copied");
+      window.setTimeout(() => setCopiedReply((current) => current === index ? null : current), 1800);
+    } catch {
+      setCopiedReply(null);
+    }
+  }
   const decisionLabel = {
     reply_once: "Reply once",
     clarify: "Ask for clarity",
@@ -90,7 +102,7 @@ function CoachResult({ result }: { result: PersonalizedCoachResult }) {
         </ol>
         <p className="mt-3 border-l-2 border-sbt-gold/40 pl-2 text-[11px] italic leading-relaxed text-sbt-mute">Based on: “{coach.actionPlan.evidenceQuotes.join("” · “")}”</p>
       </div>
-      <div><h3 className="text-[10px] uppercase tracking-widest text-sbt-mute">Replies you can edit</h3><p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">Choose how much emotion and vulnerability fits this situation. More open is not automatically better.</p><ul className="mt-2 space-y-2.5">{coach.replies.map((reply) => <li key={`${reply.style}-${reply.exposure}`} className="rounded-sbt border border-sbt-gold/25 bg-white/85 p-3.5"><p className="text-[10px] font-semibold uppercase tracking-wider text-sbt-gold-700">{exposureLabel[reply.exposure]} · {reply.style}</p><p className="mt-1.5 font-display text-[14px] leading-relaxed text-sbt-ink">“{reply.text}”</p><p className="mt-2 text-[12px] leading-relaxed text-sbt-dusk">{reply.why}</p><p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">Tradeoff: {reply.tradeoff}</p></li>)}</ul></div>
+      <div><h3 className="text-[10px] uppercase tracking-widest text-sbt-mute">Replies you can edit</h3><p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">Choose how much emotion and vulnerability fits this situation. More open is not automatically better.</p><ul className="mt-2 space-y-2.5">{coach.replies.map((reply, index) => <li key={`${reply.style}-${reply.exposure}`} className="rounded-sbt border border-sbt-gold/25 bg-white/85 p-3.5"><div className="flex items-start justify-between gap-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-sbt-gold-700">{exposureLabel[reply.exposure]} · {reply.style}</p><button type="button" onClick={() => void copyReply(reply.text, index)} className="min-h-9 shrink-0 rounded-full border border-sbt-gold/35 px-3 text-[11px] font-semibold text-sbt-gold-700" aria-label={`Copy ${reply.style} reply`}>{copiedReply === index ? "Copied ✓" : "Copy"}</button></div><p className="mt-1.5 font-display text-[14px] leading-relaxed text-sbt-ink">“{reply.text}”</p><p className="mt-2 text-[12px] leading-relaxed text-sbt-dusk">{reply.why}</p><p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">Tradeoff: {reply.tradeoff}</p></li>)}</ul><p className="sr-only" role="status" aria-live="polite">{copiedReply === null ? "" : "Reply copied to clipboard"}</p></div>
       <details className="rounded-sbt border border-sbt-linen bg-white/60 p-3"><summary className="cursor-pointer text-sm font-medium text-sbt-gold-700">See evidence, alternatives, and cautions</summary><div className="mt-3 space-y-3">
         <div><p className="text-[10px] uppercase tracking-wider text-sbt-mute">What is observable</p>{coach.observations.map((item) => <div key={item.quote} className="mt-2 text-[12.5px] text-sbt-dusk"><p>{item.observation}</p><p className="mt-1 border-l-2 border-sbt-gold/40 pl-2 italic text-sbt-mute">“{item.quote}”</p></div>)}</div>
         <div><p className="text-[10px] uppercase tracking-wider text-sbt-mute">Possible readings</p>{coach.possibleReadings.map((item) => <div key={item.title} className="mt-2"><p className="font-display text-[13px] text-sbt-ink">{item.title}</p><p className="text-[12px] leading-relaxed text-sbt-dusk">{item.explanation}</p></div>)}</div>

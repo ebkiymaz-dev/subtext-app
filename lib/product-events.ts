@@ -6,7 +6,8 @@ export type SubtextEvent =
   | "read_shared"
   | "sample_loaded"
   | "screenshot_imported"
-  | "conversation_archived";
+  | "conversation_archived"
+  | "answer_reply_copied";
 
 const KEY = "subtext.product-events.v1";
 
