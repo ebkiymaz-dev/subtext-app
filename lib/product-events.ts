@@ -6,6 +6,7 @@ export type SubtextEvent =
   | "read_shared"
   | "sample_loaded"
   | "screenshot_imported"
+  | "chat_export_imported"
   | "conversation_archived"
   | "answer_reply_copied";
 

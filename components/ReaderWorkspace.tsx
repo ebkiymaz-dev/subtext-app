@@ -55,6 +55,7 @@ import {
 import { clearActiveRead, keepActiveRead, readActiveRead } from "@/lib/active-read";
 import { createWorkspaceLifetime, ERASE_WORKSPACE_EVENT } from "@/lib/workspace-lifetime";
 import { assessEnglishReadiness, type LanguageAssessment } from "@/lib/language-support";
+import { prepareImportedChatText } from "@/lib/chat-import";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 type ContentKind = "conversation" | "post";
@@ -165,6 +166,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   const [assistant, setAssistant] = useState<AndroidAssistantState>({ android: false, active: false });
   const [assistantStarting, setAssistantStarting] = useState(false);
   const screenshotInput = useRef<HTMLInputElement>(null);
+  const chatExportInput = useRef<HTMLInputElement>(null);
   const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
 
@@ -215,6 +217,37 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
     window.SubtextAssistant?.stopConversationAssist();
     setAssistant({ android: true, active: false });
     setAssistantStarting(false);
+  }
+
+  async function importChatExport(file: File) {
+    lifetime.current.invalidate();
+    setParseWarning(null);
+    setRunError(null);
+    try {
+      const imported = prepareImportedChatText(await file.text());
+      if (!imported.text) {
+        setParseWarning("That text export was empty. Export the chat without media and try again.");
+        return;
+      }
+      if (screenshotInput.current) screenshotInput.current.value = "";
+      setContentKind("conversation");
+      setRaw(imported.text);
+      setSpeakerAssignments({});
+      setExcludedMessages({});
+      setCustomParticipants([]);
+      setFocusName(null);
+      setYouName(null);
+      setOcrState("idle");
+      setOcrMessage(null);
+      setOcrSpeakersConfirmed(true);
+      setAnalysisLanguageChoice("auto");
+      setShareImportMessage(imported.truncated
+        ? "Chat export imported privately. It was large, so Subtext kept the latest complete messages that fit this read."
+        : `Chat export imported privately from ${file.name}. Confirm the people below before reading.`);
+      recordProductEvent("chat_export_imported");
+    } catch {
+      setParseWarning("Subtext could not read that file. Choose the plain .txt file from a WhatsApp export without media.");
+    }
   }
 
   // Archive/profile/purchase actions can happen in another app tab. Refresh
@@ -616,6 +649,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
     setAnalysisLanguageChoice("auto");
     setShareImportMessage(null);
     if (screenshotInput.current) screenshotInput.current.value = "";
+    if (chatExportInput.current) chatExportInput.current.value = "";
     setAnalysis(null);
     setActive(null);
     setCoachState("idle");
@@ -648,6 +682,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
     setCoachState("idle");
     setCoachResult(null);
     if (screenshotInput.current) screenshotInput.current.value = "";
+    if (chatExportInput.current) chatExportInput.current.value = "";
     setOcrState("idle");
     setAnalysisLanguageChoice("eng");
     setOcrSpeakersConfirmed(true);
@@ -739,6 +774,15 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   if (phase === "result" && analysis) {
     const youSpeaker = analysis.transcript.messages.find((m) => m.speaker === "you")?.name ?? "You";
     const themSpeaker = analysis.transcript.messages.find((m) => m.speaker === "them")?.name ?? "The other person";
+    const evidenceMoments = analysis.categories
+      .flatMap((category) => category.evidence.map((evidence) => ({ ...evidence, category: category.label })))
+      .filter((evidence, index, all) => all.findIndex((candidate) => candidate.messageId === evidence.messageId && candidate.span === evidence.span) === index);
+    const evidenceStrength = analysis.transcript.messages.length < 4 || analysis.signals.sampleWeight < 0.35
+      ? "Limited"
+      : analysis.signals.sampleWeight < 0.7
+        ? "Moderate"
+        : "Stronger";
+    const charitableCheck = analysis.interpretations.find((item) => item.charitable);
     return (
       <div className="space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-3">
@@ -764,6 +808,25 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           <p className="mt-1.5 font-display text-[17px] leading-relaxed text-sbt-ink sm:text-[19px]">
             {analysis.headline}
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-sbt-mute">
+            <span className="rounded-full border border-sbt-gold/30 bg-white/60 px-2.5 py-1 font-semibold text-sbt-dusk">
+              Evidence strength: {evidenceStrength}
+            </span>
+            <span>{analysis.transcript.messages.length} {contentKind === "post" ? "visible text block" : "messages"} · {evidenceMoments.length} supporting moment{evidenceMoments.length === 1 ? "" : "s"}</span>
+          </div>
+          {evidenceMoments.length ? (
+            <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
+              <summary className="cursor-pointer font-medium text-sbt-gold-700">What supports this read</summary>
+              <ul className="mt-2 space-y-2">
+                {evidenceMoments.slice(0, 2).map((evidence) => (
+                  <li key={`${evidence.messageId}-${evidence.span}`} className="leading-relaxed">
+                    <span className="text-sbt-dusk">“{evidence.span}”</span> · {evidence.category.toLowerCase()}
+                  </li>
+                ))}
+              </ul>
+              {charitableCheck ? <p className="mt-2 leading-relaxed"><strong className="text-sbt-dusk">Reality check:</strong> {charitableCheck.title}. {charitableCheck.suggestedNext}</p> : null}
+            </details>
+          ) : null}
           {contentKind === "post" ? (
             <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
               <summary className="cursor-pointer">Limits of a one-post read</summary>
@@ -980,6 +1043,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           onChange={(e) => {
             lifetime.current.invalidate();
             if (screenshotInput.current) screenshotInput.current.value = "";
+            if (chatExportInput.current) chatExportInput.current.value = "";
             setRaw(e.target.value);
             setSpeakerAssignments({});
             setExcludedMessages({});
@@ -1096,6 +1160,30 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
             </select>
             <p className="mt-1">Automatic covers English, Chinese, Japanese, and Russian. Choosing one language is faster.</p>
           </details>
+          {contentKind === "conversation" ? (
+            <div className="mt-2">
+              <input
+                ref={chatExportInput}
+                type="file"
+                disabled={!inputReady}
+                accept=".txt,text/plain"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void importChatExport(file);
+                }}
+              />
+              <button
+                type="button"
+                disabled={!inputReady}
+                onClick={() => chatExportInput.current?.click()}
+                className="min-h-11 w-full rounded-sbt border border-sbt-linen bg-white/60 px-3 py-2 text-sm font-medium text-sbt-dusk transition-colors hover:border-sbt-gold/50 hover:text-sbt-gold-700 disabled:opacity-50"
+              >
+                Import WhatsApp chat export (.txt)
+              </button>
+              <p className="mt-1 text-[10px] text-sbt-mute">Export without media. The file is read on this device and is not uploaded.</p>
+            </div>
+          ) : null}
         </div>
 
         {ocrMessage ? (
