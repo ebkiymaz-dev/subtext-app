@@ -239,7 +239,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
       setYouName(null);
       setOcrState("idle");
       setOcrMessage(null);
-      setOcrSpeakersConfirmed(true);
+      setOcrSpeakersConfirmed(false);
       setAnalysisLanguageChoice("auto");
       setShareImportMessage(imported.truncated
         ? "Chat export imported privately. It was large, so Subtext kept the latest complete messages that fit this read."
@@ -531,7 +531,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
       setParseWarning("Choose the relationship and how long you have known them before reading. Subtext will not guess this context.");
       return;
     }
-    if (contentKind === "conversation" && (ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed) {
+    if (contentKind === "conversation" && (ocrState === "done" || preview?.format === "alternating" || participantNames.length > 2) && !ocrSpeakersConfirmed) {
       setParseWarning("Confirm who wrote each message before reading. Subtext will not guess uncertain speakers.");
       return;
     }
@@ -1326,7 +1326,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
                 );
               })}
             </ul>
-            {ocrState === "done" || preview.format === "alternating" ? (
+            {ocrState === "done" || preview.format === "alternating" || participantNames.length > 2 ? (
               <div className="mt-3 rounded-sbt border border-sbt-gold/30 bg-white/70 p-3">
                 <p className="text-xs leading-relaxed text-sbt-dusk">
                   Check each name above. Add a missing person, then use the name menu on any message that is wrong. Bare pasted lines are never assumed to alternate correctly.
@@ -1438,10 +1438,10 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           <button
             type="button"
             onClick={run}
-            disabled={!raw.trim() || unsupportedAnalysisLanguage || uncertainAnalysisLanguage || (contentKind === "conversation" && (!contextConfirmed || !familiarityConfirmed || ((ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed)))}
+            disabled={!raw.trim() || unsupportedAnalysisLanguage || uncertainAnalysisLanguage || (contentKind === "conversation" && (!contextConfirmed || !familiarityConfirmed || ((ocrState === "done" || preview?.format === "alternating" || participantNames.length > 2) && !ocrSpeakersConfirmed)))}
             className="min-h-12 flex-1 rounded-sbt bg-sbt-gold-700 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sbt-ink disabled:opacity-40 sm:flex-none"
           >
-            {unsupportedAnalysisLanguage ? "English analysis only" : uncertainAnalysisLanguage ? "Confirm language" : contentKind === "conversation" && (!contextConfirmed || !familiarityConfirmed) ? "Choose context first" : contentKind === "conversation" && (ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed ? "Confirm speakers first" : contentKind === "post" ? "Read this post" : "Read this conversation"}
+            {unsupportedAnalysisLanguage ? "English analysis only" : uncertainAnalysisLanguage ? "Confirm language" : contentKind === "conversation" && (!contextConfirmed || !familiarityConfirmed) ? "Choose context first" : contentKind === "conversation" && (ocrState === "done" || preview?.format === "alternating" || participantNames.length > 2) && !ocrSpeakersConfirmed ? "Confirm speakers first" : contentKind === "post" ? "Read this post" : "Read this conversation"}
           </button>
           <p className="text-xs text-sbt-mute">{contentKind === "post" ? "Post reader" : "Conversation reader"} · free</p>
         </div>
