@@ -36,8 +36,15 @@ export default function Panel({
 }) {
   // Relevance gating — quiet categories collapse rather than pad the panel.
   const relevant = analysis.categories.filter((c) => c.percent >= 12);
-  const shown = showAll ? analysis.categories : relevant.slice(0, 5);
+  // Always expose a small percentage read, even when every signal is weak.
+  // Hiding all bars made a careful low-confidence result look broken.
+  const shown = showAll
+    ? analysis.categories
+    : relevant.length > 0
+      ? relevant.slice(0, 5)
+      : analysis.categories.slice(0, 3);
   const hidden = analysis.categories.length - shown.length;
+  const isPost = themName === "Post author";
 
   return (
     <section className="rounded-sbt border border-sbt-linen bg-white/70 p-5">
@@ -46,7 +53,7 @@ export default function Panel({
         <p className="mt-1 text-[11px] leading-relaxed text-sbt-mute">{CONFIDENCE_CAPTION}</p>
         <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
           <span className="text-emerald-700"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />{youName} = your context</span>
-          <span className="text-sky-700"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-500" />{themName} = the side these readings describe</span>
+          <span className="text-sky-700"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-500" />{themName} = {isPost ? "the wording being read" : "the side these readings describe"}</span>
         </p>
       </header>
 
@@ -65,7 +72,7 @@ export default function Panel({
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-display text-[15px] text-sbt-ink">{c.label}</span>
                   <span className={`text-[10px] font-semibold uppercase tracking-wider ${active ? "text-sbt-gold-700" : "text-sbt-mute"}`}>
-                    {c.percent}% · {strength(c.percent)} · {c.evidence.length} message moment{c.evidence.length === 1 ? "" : "s"}
+                    {c.percent}% · {strength(c.percent)} · {c.evidence.length} {isPost ? `wording cue${c.evidence.length === 1 ? "" : "s"}` : `message moment${c.evidence.length === 1 ? "" : "s"}`}
                   </span>
                 </div>
 

@@ -2,6 +2,8 @@ import { activeParticipants, focusedTranscript, participantStats } from "../lib/
 import { chooseScreenshotSender, detectColouredBubbleBoxes, groupScreenshotParagraphs, looksLikeMessage, looksLikeSenderName, normaliseOcrLine, screenshotCanvasSize, trainedDataFor } from "../lib/screenshot-ocr";
 import { parseStamp, segment } from "../lib/engine/segment";
 import { screenForDistress } from "../lib/engine/distress";
+import { analyze } from "../lib/engine/analyze";
+import { adaptAnalysisForPost } from "../lib/engine/post";
 
 const assert = (condition: unknown, message: string) => {
   if (!condition) throw new Error(message);
@@ -92,6 +94,19 @@ assert(multiline.format === "named", "multiline named paste fell back to alterna
 assert(multiline.messages.length === 2, `multiline paste fabricated ${multiline.messages.length} messages`);
 assert(multiline.messages[0].text.includes("continued line two"), "first multiline message lost its continuation");
 assert(multiline.messages[1].text.includes("continued line four"), "second multiline message lost its continuation");
+
+const singlePost = segment("Post author: I am honestly tired of being pressured to decide right now.");
+assert(singlePost.format === "named" && singlePost.messages.length === 1, "single social post lost its author label");
+assert(singlePost.messages[0].speaker === "them", "single social post was incorrectly attributed to the user");
+const postResult = analyze("Post author: I am honestly tired of being pressured to decide right now.", "other", "You", "days");
+assert(postResult.kind === "analysis", "ordinary social post did not produce an analysis");
+if (postResult.kind === "analysis") {
+  const post = adaptAnalysisForPost(postResult.analysis);
+  for (const forbidden of ["engagement", "reciprocity", "power", "bid_response"]) {
+    assert(!post.categories.some((category) => category.id === forbidden), `post fabricated two-sided ${forbidden} score`);
+  }
+  assert(post.headline.includes("wording pattern") || post.headline.includes("does not contain enough"), "post did not receive a post-specific short summary");
+}
 
 for (const paste of ["张伟: 我晚点到。\n李: 好的。", "Алексей: Буду позже.\nМария: Хорошо.", "فاطمة: سأتأخر.\nعلي: حسنا."]) {
   const unicode = segment(paste);

@@ -95,8 +95,12 @@ export async function POST(request: Request) {
 
   try {
     const checked = await runControlledIdempotent(requestKey, async () => {
-      const parsed = await callModel(provider, prompt);
-      return validatePersonalizedCoach(parsed, transcript, context);
+      let checked = validatePersonalizedCoach(await callModel(provider, prompt), transcript, context);
+      if (!checked.coach) {
+        const repairPrompt = `${prompt}\n\nYour first draft was rejected by the safety/evidence validator: ${checked.fatal}. Produce a new complete JSON object. Correct that exact issue; keep every observation grounded in a verbatim quote, include at least two safe distinct reply options, and obey the protective-response decision gate.`;
+        checked = validatePersonalizedCoach(await callModel(provider, repairPrompt), transcript, context);
+      }
+      return checked;
     }, (value) => value.coach ? "ok" : "validation_failed");
     if (!checked.coach) return json({ ok: false, reason: `The coaching draft failed its evidence checks (${checked.fatal}). Nothing unsupported was shown.`, repairs: checked.repairs }, 422);
     return json({ ok: true, coach: checked.coach, provider: provider.label, model: provider.model, repairs: checked.repairs });

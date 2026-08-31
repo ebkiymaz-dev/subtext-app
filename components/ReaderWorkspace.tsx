@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { analyze } from "@/lib/engine/analyze";
+import { adaptAnalysisForPost } from "@/lib/engine/post";
 import { segment } from "@/lib/engine/segment";
 import type { Analysis, CategoryId, ContextId, DistressResult, FamiliarityId } from "@/lib/engine/types";
 import {
@@ -56,6 +57,7 @@ import { createWorkspaceLifetime, ERASE_WORKSPACE_EVENT } from "@/lib/workspace-
 import { assessEnglishReadiness, type LanguageAssessment } from "@/lib/language-support";
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
+type ContentKind = "conversation" | "post";
 
 type AndroidShareDetail =
   | { kind: "none" }
@@ -117,6 +119,7 @@ const SPEAKER_COLOURS = [
 export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   const lifetime = useRef(createWorkspaceLifetime());
   const [inputReady, setInputReady] = useState(false);
+  const [contentKind, setContentKind] = useState<ContentKind>("conversation");
   const [raw, setRaw] = useState("");
   const [context, setContext] = useState<ContextId>("dating");
   const [familiarity, setFamiliarity] = useState<FamiliarityId>("months");
@@ -232,6 +235,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
 
     const activeRead = readActiveRead();
     if (activeRead) {
+      setContentKind(activeRead.contentKind ?? "conversation");
       setRaw(activeRead.raw);
       setContext(activeRead.context);
       setFamiliarity(activeRead.familiarity);
@@ -293,10 +297,10 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   );
 
   useEffect(() => {
-    if (participantNames.length && !participantNames.includes(youName ?? "")) {
+    if (contentKind === "conversation" && participantNames.length && !participantNames.includes(youName ?? "")) {
       setYouName(participantNames.find((name) => /^(you|me|myself)$/i.test(name)) ?? participantNames[0]);
     }
-  }, [participantNames, youName]);
+  }, [contentKind, participantNames, youName]);
 
   useEffect(() => {
     const choices = participantNames.filter((name) => name !== youName);
@@ -316,6 +320,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
    * dropped in favour of the segmenter's own first-person heuristic.
    */
   function resolveYouName(): string | undefined {
+    if (contentKind === "post") return "You";
     const names = participantNames;
     if (!names.length) return undefined;
     if (youName && names.includes(youName)) return youName;
@@ -323,6 +328,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   }
 
   function resolveFocusName(): string | undefined {
+    if (contentKind === "post") return "Post author";
     const selectedYou = resolveYouName();
     const choices = participantNames.filter((name) => name !== selectedYou);
     if (focusName && choices.includes(focusName)) return focusName;
@@ -330,6 +336,10 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   }
 
   function preparedTranscript(): string {
+    if (contentKind === "post") {
+      const post = raw.replace(/^Post author:\s*/i, "").replace(/\s+/g, " ").trim();
+      return `Post author: ${post}`;
+    }
     if (!preview?.messages.length) return raw;
     const selectedYou = resolveYouName();
     const selectedOther = resolveFocusName();
@@ -354,6 +364,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   }
 
   function preparedYouName(): string | undefined {
+    if (contentKind === "post") return "You";
     const selected = resolveYouName();
     return selected === "Left side" || selected === "Right side" ? "You" : selected;
   }
@@ -384,15 +395,16 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
         if (!lifetime.current.isCurrent(ticket)) return;
         setOcrProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
         setOcrMessage(status === "recognizing text" ? "Reading chat bubbles on this device…" : "Preparing screenshot reader…");
-      }, ocrLanguage);
+      }, ocrLanguage, contentKind === "post" ? "post" : "chat");
       if (!lifetime.current.isCurrent(ticket)) return;
       setRaw(result.transcript);
       setYouName(result.participants.includes("You") ? "You" : null);
       setOtherName("");
       setOcrState("done");
-      setOcrMessage(
-        `${result.messageCount} chat bubble${result.messageCount === 1 ? "" : "s"} and ${result.participantCount} possible participant${result.participantCount === 1 ? "" : "s"} found. Names are estimates—confirm every speaker before reading.`
-      );
+      setOcrSpeakersConfirmed(contentKind === "post");
+      setOcrMessage(contentKind === "post"
+        ? "Post text found on this device. Review the extracted wording below and remove any interface text before reading."
+        : `${result.messageCount} chat bubble${result.messageCount === 1 ? "" : "s"} and ${result.participantCount} possible participant${result.participantCount === 1 ? "" : "s"} found. Names are estimates—confirm every speaker before reading.`);
       setParseWarning(null);
       setRunError(null);
       recordProductEvent("screenshot_imported");
@@ -402,7 +414,9 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
       setOcrState("error");
       setOcrMessage(error instanceof Error && error.message === "SCREENSHOT_TOO_LARGE"
         ? "That screenshot is too large to read safely. Crop it into smaller conversation sections and try again."
-        : "I could not separate chat bubbles in that screenshot. Crop out the phone header and try a clearer image.");
+        : contentKind === "post"
+          ? "I could not read enough post text from that screenshot. Crop tightly around the post and try a clearer image."
+          : "I could not separate chat bubbles in that screenshot. Crop out the phone header and try a clearer image.");
     } finally {
       if (lifetime.current.isCurrent(ticket) && screenshotInput.current) screenshotInput.current.value = "";
     }
@@ -480,11 +494,11 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
     // effect has populated state. Never turn that valid tap into a silent
     // no-op: read the small local counter synchronously as a fallback.
     if (!usage) setUsage(readUsage());
-    if (!contextConfirmed || !familiarityConfirmed) {
+    if (contentKind === "conversation" && (!contextConfirmed || !familiarityConfirmed)) {
       setParseWarning("Choose the relationship and how long you have known them before reading. Subtext will not guess this context.");
       return;
     }
-    if ((ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed) {
+    if (contentKind === "conversation" && (ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed) {
       setParseWarning("Confirm who wrote each message before reading. Subtext will not guess uncertain speakers.");
       return;
     }
@@ -511,7 +525,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
       if (!lifetime.current.isCurrent(ticket)) return;
       try {
         const input = preparedTranscript();
-        const result = analyze(input, context, preparedYouName(), familiarity);
+        const result = analyze(input, contentKind === "post" ? "other" : context, preparedYouName(), contentKind === "post" ? "days" : familiarity);
         if (result.kind === "distress") {
           // THE HARD RULE: no scores, and the free counter is NOT ticked.
           setAnalysis(null);
@@ -520,9 +534,11 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           setPhase("distress");
           return;
         }
-        setAnalysis(result.analysis);
+        const finalAnalysis = contentKind === "post" ? adaptAnalysisForPost(result.analysis) : result.analysis;
+        setAnalysis(finalAnalysis);
         setSaveState("idle");
         keepActiveRead({
+          contentKind,
           raw,
           analyzedRaw: input,
           context,
@@ -533,7 +549,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           speakerAssignments: { ...speakerAssignments },
           excludedMessages: { ...excludedMessages },
           customParticipants: [...customParticipants],
-          analysis: result.analysis,
+          analysis: finalAnalysis,
         });
         recordProductEvent("analysis_completed");
         setUsage(recordAnalysis());
@@ -566,7 +582,8 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
     const ticket = lifetime.current.start();
     setCoachState("running");
     const result = await requestPersonalizedCoach({
-      text: preparedTranscript(), context, familiarity, youName: preparedYouName(),
+      text: preparedTranscript(), context: contentKind === "post" ? "other" : context,
+      familiarity: contentKind === "post" ? "days" : familiarity, youName: preparedYouName(),
       goal: coachGoal, tone: coachTone, stakes: coachStakes, entitlement,
     });
     if (!lifetime.current.isCurrent(ticket)) return;
@@ -578,6 +595,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
     lifetime.current.invalidate();
     clearActiveRead();
     setPhase("intake");
+    setContentKind("conversation");
     setDistressMode(null);
     setRaw("");
     setYouName(null);
@@ -614,6 +632,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
     lifetime.current.invalidate();
     clearActiveRead();
     setRaw(sample.text);
+    setContentKind("conversation");
     setContext(sample.context);
     setFamiliarity(sample.familiarity);
     setContextConfirmed(true);
@@ -650,8 +669,8 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
       // Store the exact transcript that produced this result. Creating a
       // local profile must not rename its speakers after the analysis.
       raw: readActiveRead()?.analyzedRaw ?? preparedTranscript(),
-      context,
-      familiarity,
+      context: contentKind === "post" ? "other" : context,
+      familiarity: contentKind === "post" ? "days" : familiarity,
       headline: analysis.headline,
       categories: analysis.categories.map(({ id, label, percent, read }) => ({ id, label, percent, read })),
     });
@@ -725,7 +744,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl text-sbt-ink">Your read</h1>
-            <p className="mt-1 text-xs text-sbt-mute">{youSpeaker} and {themSpeaker} · {analysis.transcript.messages.length} messages</p>
+            <p className="mt-1 text-xs text-sbt-mute">{contentKind === "post" ? `${themSpeaker} · one post` : `${youSpeaker} and ${themSpeaker} · ${analysis.transcript.messages.length} messages`}</p>
           </div>
           <div>
             <button
@@ -733,7 +752,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
               onClick={reset}
               className="min-h-11 rounded-sbt px-3 py-2 text-sm text-sbt-mute underline decoration-sbt-linen underline-offset-4 transition-colors hover:text-sbt-ink"
             >
-              New conversation
+              {contentKind === "post" ? "New post" : "New conversation"}
             </button>
           </div>
         </header>
@@ -745,13 +764,20 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           <p className="mt-1.5 font-display text-[17px] leading-relaxed text-sbt-ink sm:text-[19px]">
             {analysis.headline}
           </p>
-          <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
-            <summary className="cursor-pointer">Why relationship context changes this read</summary>
-            <p className="mt-2 leading-relaxed">
-              Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
-              known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span>. The exchange is compared with the level of formality normally expected in that setting—not with a universal relationship standard.
-            </p>
-          </details>
+          {contentKind === "post" ? (
+            <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
+              <summary className="cursor-pointer">Limits of a one-post read</summary>
+              <p className="mt-2 leading-relaxed">Subtext can describe visible wording patterns, but one post cannot establish motive, honesty, diagnosis, or how the author responds to other people.</p>
+            </details>
+          ) : (
+            <details className="mt-3 border-t border-sbt-gold/20 pt-2.5 text-[11.5px] text-sbt-mute">
+              <summary className="cursor-pointer">Why relationship context changes this read</summary>
+              <p className="mt-2 leading-relaxed">
+                Weighted for <span className="text-sbt-dusk">{analysis.profile.contextLabel.toLowerCase()}</span>,
+                known <span className="text-sbt-dusk">{analysis.profile.familiarityLabel.toLowerCase()}</span>. The exchange is compared with the level of formality normally expected in that setting—not with a universal relationship standard.
+              </p>
+            </details>
+          )}
         </section>
 
         <CoachCard
@@ -802,12 +828,12 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           </section>
         ) : null}
 
-        <details className="rounded-sbt border border-sbt-linen bg-white/60 p-4">
+        {analysis.interpretations.length ? <details className="rounded-sbt border border-sbt-linen bg-white/60 p-4">
           <summary className="cursor-pointer font-display text-lg text-sbt-ink">Other possible explanations</summary>
           <div className="mt-4">
             <Interpretations items={analysis.interpretations} />
           </div>
-        </details>
+        </details> : null}
 
         <section aria-label="Read actions" className="rounded-sbt border border-sbt-linen bg-white/60 p-3">
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
@@ -828,7 +854,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           </div>
           {shareState === "failed" ? (
             <p role="status" className="mt-2 text-xs text-sbt-mute">
-              Sharing was unavailable on this device. Your conversation was not included or uploaded.
+              Sharing was unavailable on this device. Your {contentKind === "post" ? "post" : "conversation"} was not included or uploaded.
             </p>
           ) : null}
           {saveState === "error" ? (
@@ -839,12 +865,12 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
         </section>
 
         <details className="rounded-sbt border border-sbt-linen bg-white/50 p-3 sm:p-4">
-          <summary className="cursor-pointer font-display text-[15px] text-sbt-gold-700">See conversation evidence and full analysis</summary>
+          <summary className="cursor-pointer font-display text-[15px] text-sbt-gold-700">See {contentKind === "post" ? "post" : "conversation"} evidence and full analysis</summary>
         <div className="mt-4 grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="order-2 lg:order-1">
             <div className="rounded-sbt border border-sbt-linen bg-sbt-paper p-4 sm:p-5">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-display text-lg text-sbt-ink">The conversation</h2>
+                <h2 className="font-display text-lg text-sbt-ink">The {contentKind === "post" ? "post" : "conversation"}</h2>
                 {active ? (
                   <button
                     type="button"
@@ -918,18 +944,34 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           <SubtextLogo />
         </div>
         <p className="text-[10px] uppercase tracking-[0.18em] text-sbt-gold-700 sm:hidden">
-          Private conversation reader
+          Private message reader
         </p>
         <h1 className="mt-2 max-w-2xl text-left font-display text-[24px] leading-tight text-sbt-ink sm:mx-auto sm:mt-7 sm:text-center sm:text-[34px]">
-          Paste a conversation or upload a screenshot.
+          Paste a conversation, message, or post.
         </h1>
         <p className="mt-2 max-w-2xl text-left text-[14px] leading-relaxed text-sbt-dusk sm:mx-auto sm:mt-3 sm:text-center sm:text-[15px]">
-          Add the conversation. Subtext separates the speakers and explains the patterns in plain language.
+          Add text or a screenshot. Subtext gives you a short read first, then clear percentage scores.
         </p>
       </section>
 
       <section className="rounded-sbt border border-sbt-linen bg-white/70 p-4 shadow-soft sm:p-5">
-        <label htmlFor="paste" className="font-display text-xl text-sbt-ink">Add your conversation</label>
+        <fieldset className="mb-4">
+          <legend className="text-xs font-medium text-sbt-dusk">What are you reading?</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {(["conversation", "post"] as const).map((kind) => <button key={kind} type="button" aria-pressed={contentKind === kind} onClick={() => {
+              lifetime.current.invalidate();
+              setContentKind(kind);
+              setSpeakerAssignments({}); setExcludedMessages({}); setCustomParticipants([]); setFocusName(null); setYouName(null);
+              setOcrState("idle"); setOcrMessage(null); setParseWarning(null); setRunError(null);
+              setOcrSpeakersConfirmed(kind === "post");
+              if (kind === "post") { setContext("other"); setFamiliarity("days"); setContextConfirmed(true); setFamiliarityConfirmed(true); }
+              else { setContextConfirmed(false); setFamiliarityConfirmed(false); }
+            }} className={`min-h-12 rounded-sbt border px-3 text-sm font-semibold ${contentKind === kind ? "border-sbt-gold bg-sbt-gold/15 text-sbt-ink" : "border-sbt-linen bg-sbt-paper text-sbt-dusk"}`}>
+              {kind === "conversation" ? "Conversation / chat" : "Single post / message"}
+            </button>)}
+          </div>
+        </fieldset>
+        <label htmlFor="paste" className="font-display text-xl text-sbt-ink">{contentKind === "post" ? "Add the post or message" : "Add your conversation"}</label>
         <textarea
           id="paste"
           disabled={!inputReady}
@@ -945,14 +987,14 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
             setFocusName(null);
             setOcrState("idle");
             setAnalysisLanguageChoice("auto");
-            setOcrSpeakersConfirmed(false);
+            setOcrSpeakersConfirmed(contentKind === "post");
             setOcrMessage(null);
             setParseWarning(null);
             setRunError(null);
           }}
           rows={7}
           maxLength={12_000}
-          placeholder={inputReady ? CONTEXT_PLACEHOLDERS[contextConfirmed ? context : "other"] : "Preparing your private workspace…"}
+          placeholder={inputReady ? (contentKind === "post" ? "Paste the X/Twitter, Instagram, or other post here…" : CONTEXT_PLACEHOLDERS[contextConfirmed ? context : "other"]) : "Preparing your private workspace…"}
           className="thin-scroll mt-3 w-full resize-y rounded-sbt border border-sbt-linen bg-sbt-paper px-4 py-3 font-body text-[15px] leading-relaxed text-sbt-ink outline-none transition-shadow placeholder:text-sbt-mute/60 focus:ring-2 focus:ring-sbt-gold/30"
         />
 
@@ -971,7 +1013,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           </p>
         ) : null}
 
-        {assistant.android ? (
+        {assistant.android && contentKind === "conversation" ? (
           <div className="mt-3 rounded-sbt border border-sbt-gold/35 bg-sbt-gold/[0.06] p-3.5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -998,7 +1040,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           </div>
         ) : null}
 
-        {!raw.trim() ? (
+        {!raw.trim() && contentKind === "conversation" ? (
           <button
             type="button"
             onClick={() => loadSample(SAMPLES[0])}
@@ -1027,7 +1069,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
               onClick={() => screenshotInput.current?.click()}
               className="min-h-11 flex-1 rounded-sbt border-2 border-sbt-gold/45 bg-sbt-gold/[0.08] px-3 py-2 text-sm font-semibold text-sbt-gold-700 transition-colors hover:bg-sbt-gold/[0.16] disabled:opacity-50"
             >
-              {ocrState === "reading" ? "Reading screenshot…" : "▧ Upload a screenshot instead"}
+              {ocrState === "reading" ? "Reading screenshot…" : contentKind === "post" ? "▧ Upload a post screenshot" : "▧ Upload a chat screenshot"}
             </button>
           </div>
           <details className="mt-2 text-[11px] text-sbt-mute">
@@ -1222,7 +1264,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           </p>
         ) : null}
 
-        <section className="mt-4 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4" aria-labelledby="context-heading">
+        {contentKind === "conversation" ? <section className="mt-4 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4" aria-labelledby="context-heading">
           <h2 id="context-heading" className="font-display text-base text-sbt-ink">Context for an accurate read</h2>
           <p className="mt-1 text-xs text-sbt-mute">Subtext will not assume this is dating, work, family, or anything else.</p>
           <div className="mt-4">
@@ -1271,7 +1313,14 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
               Speaker and screenshot extraction supports 100+ languages. Psychological language-pattern analysis unlocks only after English is confirmed; other languages are being validated separately.
             </p>
           </div>
-        </section>
+        </section> : <section className="mt-4 rounded-sbt border border-sbt-gold/25 bg-sbt-gold/[0.045] p-4">
+          <h2 className="font-display text-base text-sbt-ink">Social post mode</h2>
+          <p className="mt-1 text-xs leading-relaxed text-sbt-mute">Subtext will analyse only the visible wording. It will not invent another speaker or show engagement, reciprocity, or steering scores that require a conversation.</p>
+          <label className="mt-4 block text-xs font-medium text-sbt-dusk" htmlFor="analysis-language">Post language</label>
+          <select id="analysis-language" value={analysisLanguageChoice} onChange={(event) => setAnalysisLanguageChoice(event.target.value as "auto" | "eng" | "other")} className="mt-2 min-h-11 w-full rounded-sbt border border-sbt-linen bg-white/70 px-3 text-sm text-sbt-ink sm:max-w-md">
+            <option value="auto">Detect automatically</option><option value="eng">English</option><option value="other">Another language</option>
+          </select>
+        </section>}
 
         {unsupportedAnalysisLanguage ? (
           <p role="status" className="mt-3 rounded-sbt border border-sbt-amber/35 bg-sbt-amber/10 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
@@ -1281,7 +1330,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
 
         {uncertainAnalysisLanguage && raw.trim() ? (
           <p role="status" className="mt-3 rounded-sbt border border-sbt-amber/35 bg-sbt-amber/10 px-3 py-2.5 text-[12px] leading-relaxed text-sbt-dusk">
-            This conversation is too short or mixed for safe automatic language detection. Choose English or Another language above before Subtext reads it.
+            This {contentKind === "post" ? "post or message" : "conversation"} is too short or mixed for safe automatic language detection. Choose English or Another language above before Subtext reads it.
           </p>
         ) : null}
 
@@ -1301,12 +1350,12 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
           <button
             type="button"
             onClick={run}
-            disabled={!raw.trim() || unsupportedAnalysisLanguage || uncertainAnalysisLanguage || !contextConfirmed || !familiarityConfirmed || ((ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed)}
+            disabled={!raw.trim() || unsupportedAnalysisLanguage || uncertainAnalysisLanguage || (contentKind === "conversation" && (!contextConfirmed || !familiarityConfirmed || ((ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed)))}
             className="min-h-12 flex-1 rounded-sbt bg-sbt-gold-700 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sbt-ink disabled:opacity-40 sm:flex-none"
           >
-            {unsupportedAnalysisLanguage ? "English analysis only" : uncertainAnalysisLanguage ? "Confirm language" : !contextConfirmed || !familiarityConfirmed ? "Choose context first" : (ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed ? "Confirm speakers first" : "Read this conversation"}
+            {unsupportedAnalysisLanguage ? "English analysis only" : uncertainAnalysisLanguage ? "Confirm language" : contentKind === "conversation" && (!contextConfirmed || !familiarityConfirmed) ? "Choose context first" : contentKind === "conversation" && (ocrState === "done" || preview?.format === "alternating") && !ocrSpeakersConfirmed ? "Confirm speakers first" : contentKind === "post" ? "Read this post" : "Read this conversation"}
           </button>
-          <p className="text-xs text-sbt-mute">Conversation reader · free</p>
+          <p className="text-xs text-sbt-mute">{contentKind === "post" ? "Post reader" : "Conversation reader"} · free</p>
         </div>
 
         <details className="mt-3 rounded-sbt border border-sbt-linen bg-white/50 p-4">

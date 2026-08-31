@@ -52,6 +52,7 @@ export const OCR_LANGUAGE_OPTIONS = [
 ] as const;
 
 export type OcrLanguage = (typeof OCR_LANGUAGE_OPTIONS)[number]["value"];
+export type ScreenshotMode = "chat" | "post";
 
 export function trainedDataFor(language: OcrLanguage): string {
   return OCR_LANGUAGE_OPTIONS.find((option) => option.value === language)?.trainedData ?? "eng";
@@ -293,7 +294,8 @@ export function chooseScreenshotSender(
 export async function readChatScreenshot(
   file: File,
   onProgress?: (progress: OcrProgress) => void,
-  language: OcrLanguage = "auto"
+  language: OcrLanguage = "auto",
+  mode: ScreenshotMode = "chat"
 ): Promise<ScreenshotRead> {
   if (file.size > MAX_SCREENSHOT_BYTES) {
     throw new Error("SCREENSHOT_TOO_LARGE");
@@ -366,6 +368,23 @@ export async function readChatScreenshot(
       .sort((a, b) => a.bbox.y0 - b.bbox.y0);
 
     const result = await worker.recognize(canvas, {}, { blocks: true, text: true });
+    if (mode === "post") {
+      const postText = result.data.text
+        .split(/\r\n|\r|\n/)
+        .map(normaliseOcrLine)
+        .filter((line) => line.length > 1)
+        .filter((line) => !/^(like|reply|repost|share|translate post|show this thread)$/i.test(line))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (postText.length < 3) throw new Error("No readable post text was found after removing interface labels.");
+      return {
+        transcript: `Post author: ${postText}`,
+        messageCount: 1,
+        participantCount: 1,
+        participants: ["Post author"],
+      };
+    }
     let paragraphs = extractParagraphs(result.data.blocks ?? []);
     const sideCounts = {
       left: paragraphs.filter((paragraph) => paragraph.side === "left").length,

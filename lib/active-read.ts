@@ -7,6 +7,7 @@ import type { ExcludedMessages, SpeakerAssignments } from "./group-chat";
  * localStorage unless the user explicitly chooses Save to archive.
  */
 export type ActiveRead = {
+  contentKind?: "conversation" | "post";
   raw: string;
   analyzedRaw?: string;
   context: ContextId;

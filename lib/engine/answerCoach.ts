@@ -158,8 +158,9 @@ export function buildAnswerCoachPrompt(args: {
   stakes?: string;
 }): string {
   const profile = resolveProfile(args.context, args.familiarity);
+  const protectiveResponseRequired = requiresProtectiveResponse(args.transcript, args.context);
   const lines = args.transcript.messages.map((m) => `[${m.id}] ${m.speaker === "you" ? `${args.youName} (USER)` : `${m.name} (OTHER)`}: ${m.text}`).join("\n");
-  return `${SYSTEM}\n\nBEGIN TRUSTED CONTEXT\nRELATIONSHIP: ${profile.contextLabel}; known ${profile.familiarityLabel.toLowerCase()}\nRELATIONSHIP FRAME: ${profile.frame}\nUSER GOAL: ${COACH_GOALS[args.goal].prompt}\nPREFERRED TONE: ${COACH_TONES[args.tone]}\nEND TRUSTED CONTEXT\n\nBEGIN UNTRUSTED USER NOTES\n${args.stakes?.trim() || "none provided"}\nEND UNTRUSTED USER NOTES\n\nBEGIN UNTRUSTED CONVERSATION\n${lines}\nEND UNTRUSTED CONVERSATION\n\nReturn only JSON matching the schema. Base recommendations on the actual wording, the user's goal, and practical risk. The user's best interest means clarity, agency, safety, preserving options, and avoiding needless escalation—not flattering them or declaring the other person wrong.`;
+  return `${SYSTEM}\n\nBEGIN TRUSTED CONTEXT\nRELATIONSHIP: ${profile.contextLabel}; known ${profile.familiarityLabel.toLowerCase()}\nRELATIONSHIP FRAME: ${profile.frame}\nUSER GOAL: ${COACH_GOALS[args.goal].prompt}\nPREFERRED TONE: ${COACH_TONES[args.tone]}\nPROTECTIVE RESPONSE REQUIRED: ${protectiveResponseRequired ? "YES — responseDecision must be no_reply, document, or seek_support; do not use warm or open replies. Still provide at least one observation and one possible reading, each grounded in an exact conversation quote, plus two protective reply options." : "NO"}\nEND TRUSTED CONTEXT\n\nBEGIN UNTRUSTED USER NOTES\n${args.stakes?.trim() || "none provided"}\nEND UNTRUSTED USER NOTES\n\nBEGIN UNTRUSTED CONVERSATION\n${lines}\nEND UNTRUSTED CONVERSATION\n\nReturn only JSON matching the schema. Base recommendations on the actual wording, the user's goal, and practical risk. The user's best interest means clarity, agency, safety, preserving options, and avoiding needless escalation—not flattering them or declaring the other person wrong.`;
 }
 
 const norm = (value: string) => value.toLowerCase().replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
@@ -235,7 +236,8 @@ export function validatePersonalizedCoach(raw: unknown, transcript: Transcript, 
   if (![actionPlan.now, actionPlan.messageStrategy, actionPlan.after].every(allowed) || !actionPlan.evidenceQuotes.length) return { coach: null, repairs, fatal: "The response did not include a safe, evidence-grounded action plan." };
   const responseDecision = clean(source.responseDecision) as ResponseDecision;
   if (!["reply_once", "clarify", "wait", "no_reply", "document", "seek_support"].includes(responseDecision)) return { coach: null, repairs, fatal: "The response did not make a valid next-action decision." };
-  if (requiresProtectiveResponse(transcript, context)) {
+  const protectiveResponseRequired = requiresProtectiveResponse(transcript, context);
+  if (protectiveResponseRequired) {
     if (!["no_reply", "document", "seek_support"].includes(responseDecision)) return { coach: null, repairs, fatal: "A high-risk exchange received an unsafe response decision." };
     if (replies.some((reply) => reply.exposure === "open" || reply.style === "warm")) return { coach: null, repairs, fatal: "A high-risk exchange received an unsafe re-engagement reply." };
   }
@@ -246,7 +248,14 @@ export function validatePersonalizedCoach(raw: unknown, transcript: Transcript, 
     return { observe: clean(row.observe), wouldChange: clean(row.wouldChange) };
   }).filter((item) => allowed(item.observe) && allowed(item.wouldChange)).slice(0, 3);
   if (!whatWouldClarify.length) return { coach: null, repairs, fatal: "The response did not identify a safe way the interpretation could be updated." };
-  if (!observations.length || possibleReadings.length < 2 || replies.length < 2) return { coach: null, repairs, fatal: "Too little grounded, complete coaching survived validation." };
+  // In a protective case, do not force the model to invent alternate motives
+  // just to satisfy a quota. The grounded action-plan quote and two protective
+  // replies are more useful than speculative readings of a threat or scam.
+  if (protectiveResponseRequired && repairs.includes("Dropped an unsupported or unqualified possible reading.")) {
+    return { coach: null, repairs, fatal: "A protective response included an unsupported interpretation." };
+  }
+  const hasEnoughInterpretation = protectiveResponseRequired || (observations.length > 0 && possibleReadings.length >= 2);
+  if (!hasEnoughInterpretation || replies.length < 2) return { coach: null, repairs, fatal: "Too little grounded, complete coaching survived validation." };
 
   const avoid = (Array.isArray(source.avoid) ? source.avoid : []).map(clean).filter(allowed).slice(0, 3);
   if (!avoid.length) return { coach: null, repairs, fatal: "The response did not include a safe, complete avoid section." };

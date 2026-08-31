@@ -40,7 +40,7 @@ export function segment(raw: string): Transcript {
       if (m) parsed.push({ timestamp: m[1], name: m[2].trim(), text: m[3].trim() });
       else if (parsed.length) parsed[parsed.length - 1].text += ` ${line}`;
     }
-  } else if (namedCount >= 2) {
+  } else if (namedCount >= 2 || (namedCount === 1 && Boolean(lines[0].match(NAMED)))) {
     format = "named";
     for (const line of lines) {
       const m = line.match(NAMED);
@@ -64,7 +64,9 @@ export function segment(raw: string): Transcript {
 
   // First-person heuristic for the default "which one is you?" — the user can flip it.
   const defaultYou =
-    names.find((n) => /^(you|me|myself)$/i.test(n)) ?? names[0] ?? "You";
+    names.find((n) => /^(you|me|myself)$/i.test(n))
+    ?? (names.length === 1 ? "You" : names[0])
+    ?? "You";
 
   const messages: Message[] = parsed.map((p, i) => ({
     id: `m${i}`,

@@ -59,11 +59,15 @@ for (const item of selectedCases) {
   const transcript = setYou(segment(item.text), "Me");
   const prompt = buildAnswerCoachPrompt({ transcript, context: item.context, familiarity: "months", goal: item.goal, tone: "direct", youName: "Me" });
   try {
-    const { model, parsed } = await generate(prompt);
-    const checked = validatePersonalizedCoach(parsed, transcript, item.context);
+    let { model, parsed } = await generate(prompt);
+    let checked = validatePersonalizedCoach(parsed, transcript, item.context);
+    if (!checked.coach) {
+      ({ model, parsed } = await generate(`${prompt}\n\nYour first draft was rejected by the safety/evidence validator: ${checked.fatal}. Produce a new complete JSON object. Correct that exact issue; keep every observation grounded in a verbatim quote, include at least two safe distinct reply options, and obey the protective-response decision gate.`));
+      checked = validatePersonalizedCoach(parsed, transcript, item.context);
+    }
     if (!checked.coach) {
       const styles = Array.isArray(parsed?.replies) ? parsed.replies.map((reply) => `${reply?.style}/${reply?.exposure}`).join(",") : "none";
-      console.error(`FAIL ${item.id}: provider output withheld — ${checked.fatal}; decision=${parsed?.responseDecision ?? "missing"}; replies=${styles}`);
+      console.error(`FAIL ${item.id}: provider output withheld — ${checked.fatal}; decision=${parsed?.responseDecision ?? "missing"}; replies=${styles}; observations=${Array.isArray(parsed?.observations) ? parsed.observations.length : "missing"}; readings=${Array.isArray(parsed?.possibleReadings) ? parsed.possibleReadings.length : "missing"}; repairs=${checked.repairs.join(" | ") || "none"}`);
       failures++;
       continue;
     }
