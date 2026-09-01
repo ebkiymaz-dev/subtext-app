@@ -12,16 +12,16 @@
   "navigationDividerColorDark": "#000000",
   "backgroundColor": "#1F1D1A",
   "enableNotifications": false,
-  "startUrl": "/subtext/?app=7",
+  "startUrl": "/subtext/?app=8",
   "iconUrl": "https://neonjungletools.com/subtext/icon-512.png",
   "maskableIconUrl": "https://neonjungletools.com/subtext/icon-maskable-512.png",
-  "splashScreenFadeOutDuration": 500,
+  "splashScreenFadeOutDuration": 750,
   "signingKey": {
     "path": "./android.keystore",
     "alias": "subtext"
   },
-  "appVersionName": "1.6",
-  "appVersionCode": 7,
+  "appVersionName": "1.7",
+  "appVersionCode": 8,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://neonjungletools.com/subtext/manifest.webmanifest",
@@ -52,5 +52,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "1.6"
+  "appVersion": "1.7"
 }
