@@ -43,11 +43,11 @@ export const PLANS: Plan[] = [
     price: "$8.99",
     cadence: "/month",
     annual: "or $3.99/mo billed annually",
-    blurb: "Unlimited reads, evidence behind every pattern, and Coach.",
+    blurb: "Unlimited reads, evidence behind every pattern, and AnswerAce.",
     bullets: [
       "Unlimited analyses",
       "Evidence drawer — the lines behind every pattern",
-      "Coach: 2–4 option-framed suggestions",
+      "AnswerAce: 2–4 option-framed suggestions",
       "Trend over time",
     ],
   },

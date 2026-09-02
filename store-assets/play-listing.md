@@ -1,6 +1,6 @@
 # Subtext — Google Play listing package
 
-Updated: 2026-08-26
+Updated: 2026-09-02
 
 This copy is intentionally limited to behavior present in the current release candidate. Do not describe AnswerAce as available in production until its Google Play entitlement and model-provider launch gates pass.
 
@@ -46,20 +46,18 @@ No account is required for the free reader. No advertising.
 
 ## Screenshot order and captions
 
-Use current Android captures only. The existing screenshots dated 2026-08-18 show an obsolete interface and must not be uploaded unchanged.
+Use the current 1080 × 1920 Play-ready captures listed below.
 
-1. **Paste or upload** — `Paste a chat. Get a clearer read.`
+1. **Paste or upload** — `Paste a chat. Get a clearer read.` — `01-subtext-intake-play.png`
    - Show the empty intake screen with Paste, screenshot upload, sample conversation, and the local-analysis trust line.
-2. **Confirm speakers** — `See who said what — clearly.`
+2. **Confirm speakers** — `See who said what — clearly.` — `02-subtext-speakers-play.png`
    - Show speaker names and colors, including a realistic three-person group example.
-3. **Core result** — `Evidence first. No mind-reading.`
+3. **Core result** — `Evidence first. No mind-reading.` — `03-subtext-summary-play.png`
    - Show the short result, evidence-strength wording, and at least one alternative reading. Do not show psychological percentages.
-4. **Full evidence** — `Trace every reading back to the words.`
+4. **Full evidence** — `Trace every reading back to the words.` — `04-subtext-evidence-play.png`
    - Show highlighted lines and the expanded evidence section.
-5. **Private archive** — `Save privately on this device — or not at all.`
-   - Show the optional archive and its local-only explanation.
-6. **AnswerAce** — `Optional replies shaped around your goal.`
-   - Include only after a real Google Play purchase, entitlement verification, and Coach generation pass on the release candidate. Mark it `Optional paid feature` in the artwork.
+5. **AnswerAce** — `Optional replies shaped around your goal.` — `05-subtext-answerace-play.png`
+   - The capture shows only the truthful locked offer. Replace it with a generated-reply capture only after a real Google Play purchase, entitlement verification, and production generation pass.
 
 Screenshot overlay rules:
 
@@ -125,7 +123,8 @@ Answer from the final deployed behavior and vendor contracts, not this draft alo
 
 - Final icon: `store-assets/app-icon-512.png`.
 - Feature graphic: refresh if it does not match the final beige brand and shipped value proposition.
-- Replace all screenshots dated 2026-08-18 with captures from the final release candidate.
-- Rebuild the signed AAB after final icon or runtime changes; do not assume the older v6 bundle contains later assets.
+- Use only the five `*-play.png` captures generated on 2026-09-02; the original 2026-08-18 captures were replaced.
+- Rebuild and sign version 1.7 / code 8 after final native changes; do not upload the older v7 bundle as the current candidate.
+- Complete the Play Console `mediaProjection` foreground-service declaration and attach a short screen recording showing user initiation, Android consent, the persistent notification, the visible Scan control, and Stop.
 - Do not publish Coach claims until production model configuration, server-side Google Play verification, real purchase/restore tests, and the human safety evaluation pass.
 - Do not claim multilingual analysis. Current analysis is English; multilingual support applies to speaker names and OCR assistance.

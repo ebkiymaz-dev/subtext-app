@@ -25,21 +25,17 @@ async function main() {
   await page.goto(appUrl, { waitUntil: "networkidle" });
   await page.screenshot({ path: path.join(outputDir, "01-paste-and-customize.png") });
 
-  await page.getByRole("button", { name: "The slow fade" }).click();
+  await page.getByRole("button", { name: /The slow fade/ }).click();
   await page.getByRole("button", { name: "Read this conversation" }).click();
-  await page.getByRole("heading", { name: "The read" }).waitFor();
-  await page.getByRole("dialog").waitFor();
-  await page.screenshot({ path: path.join(outputDir, "02-answer-coach-prompt.png") });
-
-  await page.getByRole("button", { name: "Show me the coach" }).click();
-  await page.getByRole("heading", { name: "The read" }).scrollIntoViewIfNeeded();
+  await page.getByRole("heading", { name: "Your read" }).waitFor();
+  await page.locator("#answer-coach").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(outputDir, "05-answer-coach-options.png") });
+  await page.getByRole("heading", { name: "Your read" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(outputDir, "03-analysis-summary.png") });
 
+  await page.getByText("See conversation evidence and full analysis", { exact: true }).click();
   await page.getByRole("heading", { name: "The conversation" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(outputDir, "04-colour-coded-speakers.png") });
-
-  await page.getByRole("heading", { name: "Coach" }).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: path.join(outputDir, "05-answer-coach-options.png") });
 
   await browser.close();
 
