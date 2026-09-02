@@ -96,7 +96,7 @@ If AnswerAce is enabled for review, provide an active Google Play license-test a
 ## App-content answers
 
 - **Contains ads:** No.
-- **App access:** No login is required for the free reader. If paid Coach review requires a licensed test account, disclose that under App access.
+- **App access:** No login is required for the free reader. If paid AnswerAce review requires a licensed test account, disclose that under App access.
 - **Target audience:** Adults, 18 and over. The app is not directed to children.
 - **News app:** No.
 - **Government app:** No.
@@ -126,5 +126,5 @@ Answer from the final deployed behavior and vendor contracts, not this draft alo
 - Use only the five `*-play.png` captures generated on 2026-09-02; the original 2026-08-18 captures were replaced.
 - Rebuild and sign version 1.7 / code 8 after final native changes; do not upload the older v7 bundle as the current candidate.
 - Complete the Play Console `mediaProjection` foreground-service declaration and attach a short screen recording showing user initiation, Android consent, the persistent notification, the visible Scan control, and Stop.
-- Do not publish Coach claims until production model configuration, server-side Google Play verification, real purchase/restore tests, and the human safety evaluation pass.
+- Do not publish AnswerAce claims until production model configuration, server-side Google Play verification, real purchase/restore tests, and the human safety evaluation pass.
 - Do not claim multilingual analysis. Current analysis is English; multilingual support applies to speaker names and OCR assistance.
