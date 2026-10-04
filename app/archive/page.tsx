@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ContinueConversation from '@/components/ContinueConversation';
 import { hasActiveRead } from "@/lib/active-read";
 import {
   createLocalProfile,
@@ -17,12 +18,13 @@ export default function ArchivePage() {
   const [profile, setProfile] = useState<LocalProfile | null>(null);
   const [items, setItems] = useState<ArchivedConversation[]>([]);
   const [name, setName] = useState("");
+  const [error,setError]=useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeReadOpen, setActiveReadOpen] = useState(false);
 
   useEffect(() => {
     setProfile(readLocalProfile());
-    setItems(readArchive());
+    try{setItems(readArchive(true));}catch(e){setError((e as Error).message)}
     setActiveReadOpen(hasActiveRead());
   }, []);
 
@@ -63,14 +65,13 @@ export default function ArchivePage() {
             type="button"
             disabled={!name.trim()}
             onClick={() => {
-              const next = createLocalProfile(name);
-              setProfile(next);
-              setName("");
+              try{const next = createLocalProfile(name);setProfile(next);setName('');setError('')}catch{setError('Profile could not be saved on this device. Nothing was uploaded.')}
             }}
             className="mt-4 min-h-11 w-full rounded-sbt bg-sbt-gold-700 px-4 py-3 text-sm font-medium text-white disabled:opacity-40"
           >
             Create private profile
           </button>
+          {error?<p role="alert" className="mt-3 text-sm text-sbt-rose">{error}</p>:null}
         </section>
       </div>
     );
@@ -78,6 +79,7 @@ export default function ArchivePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      {error?<p role="alert" className="text-sm text-sbt-rose">{error}</p>:null}
       {activeReadBanner}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -116,12 +118,13 @@ export default function ArchivePage() {
                 <button
                   type="button"
                   aria-label={`Delete ${item.title}`}
-                  onClick={() => setItems(deleteArchivedConversation(item.id))}
+                  onClick={() => {if(!confirm('Delete this saved conversation?'))return;try{setItems(deleteArchivedConversation(item.id))}catch(e){setError((e as Error).message)}}}
                   className="text-xs text-sbt-rose"
                 >
                   Delete
                 </button>
               </div>
+              <ContinueConversation key={item.id} saved={item} />
               {openId === item.id ? (
                 <div className="mt-4 border-t border-sbt-linen pt-4">
                   <pre className="thin-scroll max-h-72 overflow-auto whitespace-pre-wrap rounded-sbt bg-sbt-paper p-3 font-body text-xs leading-relaxed text-sbt-dusk">

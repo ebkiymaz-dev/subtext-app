@@ -6,7 +6,8 @@ import { BASE_PATH } from "@/lib/basePath";
 import { COACH_GOALS, type CoachGoalId, type PersonalizedCoachResult } from "@/lib/engine/answerCoach";
 import { recordProductEvent } from "@/lib/product-events";
 
-export default function CoachCard({ locked, state, result, goal, onUnlock, onRun }: {
+export default function CoachCard({ locked, state, result, goal, onUnlock, onRun, freeTrial = false }: {
+  freeTrial?: boolean;
   locked: boolean;
   state: "idle" | "running" | "done";
   result: PersonalizedCoachResult | null;
@@ -49,11 +50,12 @@ export default function CoachCard({ locked, state, result, goal, onUnlock, onRun
             ))}
           </div>
           {onUnlock ? <button type="button" onClick={onUnlock} className="mt-3 min-h-11 w-full rounded-sbt bg-sbt-gold-700 px-4 py-2.5 text-sm font-medium text-white">Unlock AnswerAce — $8.99/mo</button> : <Link href="/plans" className="mt-3 flex min-h-11 items-center justify-center rounded-sbt bg-sbt-gold-700 px-4 py-2.5 text-sm font-medium text-white">See AnswerAce</Link>}
-          <p className="mt-2 text-[10px] uppercase tracking-wider text-sbt-mute">Google Play subscription · cancel anytime</p>
+          <p className="mt-2 text-[10px] uppercase tracking-wider text-sbt-mute">Optional paid access · see AnswerAce plans</p>
         </div>
       ) : null}
 
-      {!locked && state === "idle" ? <div><p className="text-[13px] leading-relaxed text-sbt-dusk">{providerDisclosure ? <>This sends the conversation, selected context, goal, tone, and optional notes to Subtext and <strong>{providerDisclosure.label}</strong> to generate the answer. {providerDisclosure.privacy}</> : <>AnswerAce is unavailable until Subtext can identify the configured AI provider and show its data terms here.</>} Google Play entitlement is verified first.</p><p className="mt-2 text-xs text-sbt-mute">Remove names, phone numbers, addresses, order details, or payment information you do not want transmitted. Nothing is sent unless you choose the button below.</p><button type="button" disabled={!providerDisclosure} onClick={onRun} className="mt-3 min-h-11 w-full rounded-sbt bg-sbt-ink px-4 py-2.5 text-sm font-medium text-sbt-paper disabled:cursor-not-allowed disabled:opacity-45">{providerDisclosure ? "Generate my approach and replies" : "Provider disclosure unavailable"}</button></div> : null}
+      {freeTrial && <p className="mb-3 text-sm text-sbt-dusk">Three free AnswerAce generations each UTC calendar month per installation. Your free allowance is checked on the server. Local reads remain free.</p>}
+      {!locked && state === "idle" ? <div><p className="text-[13px] leading-relaxed text-sbt-dusk">{providerDisclosure ? <>This sends the conversation, selected context, goal, tone, and optional notes to Subtext and <strong>{providerDisclosure.label}</strong> to generate the answer. {providerDisclosure.privacy}</> : <>AnswerAce is unavailable until Subtext can identify the configured AI provider and show its data terms here.</>} Your subscription or free allowance is verified first.</p><p className="mt-2 text-xs text-sbt-mute">Remove names, phone numbers, addresses, order details, or payment information you do not want transmitted. Nothing is sent unless you choose the button below.</p><button type="button" disabled={!providerDisclosure} onClick={onRun} className="mt-3 min-h-11 w-full rounded-sbt bg-sbt-ink px-4 py-2.5 text-sm font-medium text-sbt-paper disabled:cursor-not-allowed disabled:opacity-45">{providerDisclosure ? "Generate my approach and replies" : "Provider disclosure unavailable"}</button></div> : null}
       {!locked && state === "running" ? <div className="flex items-center gap-3 py-4"><div className="h-1 w-32 overflow-hidden rounded-full bg-sbt-linen"><div className="h-full w-1/2 animate-pulse rounded-full bg-sbt-gold" /></div><p className="font-display italic text-sbt-mute">Reading the actual exchange…</p></div> : null}
       {!locked && state === "done" && result && !result.ok ? <div className="rounded-sbt bg-white/75 p-3.5"><p className="text-[13px] leading-relaxed text-sbt-dusk">{result.reason}</p><button type="button" onClick={onRun} className="mt-2 text-xs text-sbt-gold-700 underline underline-offset-2">Try again</button></div> : null}
       {!locked && state === "done" && result?.ok && result.coach ? <CoachResult result={result} /> : null}

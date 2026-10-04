@@ -1,3 +1,4 @@
+import './workflow-eval';
 // ═════════════════════════════════════════════════════════════
 // THE QUALITY GATE.  `npm run eval`
 //

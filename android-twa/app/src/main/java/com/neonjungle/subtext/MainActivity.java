@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
@@ -59,6 +60,8 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private static final String COACH_PRODUCT_ID = "answer_coach_premium";
     private static final int FILE_CHOOSER_REQUEST = 4104;
     private static final int SCREEN_CAPTURE_REQUEST = 4105;
+    private static final int OVERLAY_REQUEST = 4106;
+    private static final int ASSIST_NOTIFICATION_REQUEST = 4107;
     private static final int MAX_SHARED_TEXT_CHARS = 12_000;
     private static final int MAX_SHARED_IMAGE_BYTES = 8 * 1024 * 1024;
     private WebView webView;
@@ -75,6 +78,17 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private String billingPrice;
     private boolean coachEntitled;
     private String coachPurchaseToken;
+    private static volatile String companionPurchaseToken;
+
+    static String companionEntitlementProof() {
+        JSONObject proof = new JSONObject();
+        try {
+            proof.put("packageName", "com.neonjungle.subtext");
+            proof.put("productId", COACH_PRODUCT_ID);
+            if (companionPurchaseToken != null) proof.put("purchaseToken", companionPurchaseToken);
+        } catch (JSONException ignored) { }
+        return proof.toString();
+    }
     private final Object shareLock = new Object();
     private String pendingSharedText;
     private boolean pendingSharedTextTruncated;
@@ -440,6 +454,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         }
         coachEntitled = purchased;
         coachPurchaseToken = purchased ? purchaseToken : null;
+        companionPurchaseToken = coachPurchaseToken;
         billingStatus = purchased ? "purchased" : pending ? "pending" : "ready";
         billingMessage = purchased
                 ? "AnswerAce unlocked. Thank you."
@@ -458,6 +473,11 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         JSONObject state = new JSONObject();
         try {
             state.put("android", true);
+            // Google Play installs must keep the Play purchase path unless the
+            // app is enrolled in an applicable alternative-billing program.
+            String installer = getPackageManager().getInstallerPackageName(getPackageName());
+            state.put("solanaAllowed", BuildConfig.DEBUG ||
+                    (installer != null && !installer.trim().isEmpty() && !"com.android.vending".equals(installer)));
             state.put("status", billingStatus);
             state.put("entitled", coachEntitled);
             state.put("message", billingMessage);
@@ -609,10 +629,32 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
                 .setMessage("While this session is on, Android lets Subtext view your screen. Subtext captures a screenshot only when you tap Scan. The screenshot is analyzed on this device, is not automatically saved, and is never sent to AnswerAce unless you separately request coaching. Protected screens remain protected. Stop anytime from the Subtext control or notification.")
                 .setNegativeButton("Not now", null)
                 .setPositiveButton("Continue", (dialog, which) -> {
-                    MediaProjectionManager manager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
-                    startActivityForResult(manager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST);
+                    if (!Settings.canDrawOverlays(this)) {
+                        startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())), OVERLAY_REQUEST);
+                    } else requestCaptureConsent();
                 })
                 .show();
+    }
+
+    private void requestCaptureConsent() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, ASSIST_NOTIFICATION_REQUEST);
+            return;
+        }
+        android.app.NotificationManager notifications = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= 24 && !notifications.areNotificationsEnabled()) {
+            new AlertDialog.Builder(this).setMessage("Enable Subtext notifications in Android settings to use the Analyze text action. Sharing text or screenshots still works without it.").setPositiveButton("OK", null).show();
+            return;
+        }
+        MediaProjectionManager manager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        startActivityForResult(manager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST);
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != ASSIST_NOTIFICATION_REQUEST) return;
+        if (results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) requestCaptureConsent();
+        else new AlertDialog.Builder(this).setMessage("Notifications are needed for the Analyze text button. You can still share a conversation to Subtext without enabling this mode.").setPositiveButton("OK", null).show();
     }
 
     private void captureAssistantIntent(Intent intent) {
@@ -753,6 +795,11 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == OVERLAY_REQUEST) {
+            if (Settings.canDrawOverlays(this)) requestCaptureConsent();
+            else new AlertDialog.Builder(this).setMessage("The on-demand analysis panel needs Display over other apps permission. It appears only when requested. You can still share screenshots to Subtext without it.").setPositiveButton("OK", null).show();
+            return;
+        }
         if (requestCode == SCREEN_CAPTURE_REQUEST) {
             if (resultCode == RESULT_OK && data != null) {
                 Intent service = new Intent(this, ConversationAssistantService.class)

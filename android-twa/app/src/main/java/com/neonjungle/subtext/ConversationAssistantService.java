@@ -9,9 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.PixelFormat;
-import android.graphics.drawable.GradientDrawable;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.Image;
@@ -24,11 +22,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
-import android.view.Gravity;
-import android.view.View;
 import android.view.WindowManager;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
@@ -57,7 +51,7 @@ public class ConversationAssistantService extends Service {
     private VirtualDisplay virtualDisplay;
     private ImageReader imageReader;
     private WindowManager windowManager;
-    private View overlay;
+    private CompanionOverlay companion;
     private volatile boolean captureRequested;
     private volatile boolean captureBusy;
 
@@ -144,26 +138,24 @@ public class ConversationAssistantService extends Service {
                 null,
                 captureHandler
         );
-        mainHandler.postDelayed(this::showOverlayIfAllowed, 300);
     }
 
     private void requestCapture() {
         if (projection == null || imageReader == null || captureBusy) return;
+        if (companion != null) companion.close();
         captureBusy = true;
-        if (overlay != null) overlay.setVisibility(View.INVISIBLE);
         captureHandler.postDelayed(() -> captureRequested = true, 140);
         captureHandler.postDelayed(() -> {
             if (!captureRequested) return;
             captureRequested = false;
             captureBusy = false;
-            mainHandler.post(() -> {
-                if (overlay != null) overlay.setVisibility(View.VISIBLE);
-            });
         }, 2_500);
     }
 
     private void onImageAvailable(ImageReader reader) {
-        Image image = reader.acquireLatestImage();
+        Image image;
+        try { image = reader.acquireLatestImage(); }
+        catch (IllegalStateException stopped) { return; }
         if (image == null) return;
         try {
             if (!captureRequested) return;
@@ -178,10 +170,20 @@ public class ConversationAssistantService extends Service {
                 mainHandler.post(() -> finishCaptureFailure());
                 return;
             }
-            PendingCaptureStore.put(encoded, "image/jpeg");
+            final byte[] captured = encoded;
             mainHandler.post(() -> {
                 captureBusy = false;
-                if (overlay != null) overlay.setVisibility(View.VISIBLE);
+                if (!running) return;
+                if (Settings.canDrawOverlays(this)) {
+                    try {
+                        if (companion == null) companion = new CompanionOverlay(this, this::requestCapture);
+                        companion.show(captured);
+                        return;
+                    } catch (RuntimeException error) {
+                        if (companion != null) companion.close();
+                    }
+                }
+                PendingCaptureStore.put(captured, "image/jpeg");
                 Intent open = new Intent(this, MainActivity.class)
                         .setAction(ACTION_ANALYZE_CAPTURE)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -194,7 +196,6 @@ public class ConversationAssistantService extends Service {
 
     private void finishCaptureFailure() {
         captureBusy = false;
-        if (overlay != null) overlay.setVisibility(View.VISIBLE);
         Toast.makeText(this, "Subtext could not capture this screen. Try Share screenshot instead.", Toast.LENGTH_LONG).show();
     }
 
@@ -214,71 +215,16 @@ public class ConversationAssistantService extends Service {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         cropped.compress(Bitmap.CompressFormat.JPEG, 88, output);
         padded.recycle();
-        cropped.recycle();
+        if (cropped != padded) cropped.recycle();
         byte[] bytes = output.toByteArray();
         return bytes.length <= 8 * 1024 * 1024 ? bytes : null;
     }
 
-    private void showOverlayIfAllowed() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return;
-        if (overlay != null || windowManager == null) return;
-
-        LinearLayout pill = new LinearLayout(this);
-        pill.setOrientation(LinearLayout.HORIZONTAL);
-        pill.setGravity(Gravity.CENTER);
-        pill.setPadding(dp(5), dp(5), dp(5), dp(5));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.parseColor("#1F1D1A"));
-        background.setCornerRadius(dp(24));
-        background.setStroke(dp(1), Color.parseColor("#D8C7A1"));
-        pill.setBackground(background);
-
-        TextView scan = overlayButton("Scan", 14);
-        scan.setContentDescription("Scan the visible conversation with Subtext");
-        scan.setOnClickListener(view -> requestCapture());
-        pill.addView(scan, new LinearLayout.LayoutParams(dp(66), dp(42)));
-
-        TextView close = overlayButton("×", 21);
-        close.setContentDescription("Stop Subtext Conversation Assist");
-        close.setOnClickListener(view -> stopSelf());
-        pill.addView(close, new LinearLayout.LayoutParams(dp(38), dp(42)));
-
-        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_PHONE;
-        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                type,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.TRANSLUCENT
-        );
-        params.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
-        params.x = dp(8);
-        overlay = pill;
-        windowManager.addView(overlay, params);
-    }
-
-    private TextView overlayButton(String text, int textSize) {
-        TextView view = new TextView(this);
-        view.setText(text);
-        view.setTextColor(Color.parseColor("#FBF8F2"));
-        view.setTextSize(textSize);
-        view.setGravity(Gravity.CENTER);
-        return view;
-    }
-
     private Notification buildNotification() {
-        PendingIntent openApp = PendingIntent.getActivity(
-                this,
-                0,
-                new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        PendingIntent scan = PendingIntent.getService(
+        PendingIntent scan = PendingIntent.getActivity(
                 this,
                 1,
-                new Intent(this, ConversationAssistantService.class).setAction(ACTION_CAPTURE),
+                new Intent(this, CaptureActionActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         PendingIntent stop = PendingIntent.getService(
@@ -293,11 +239,11 @@ public class ConversationAssistantService extends Service {
         return builder
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("Subtext Conversation Assist is on")
-                .setContentText("Tap Scan only when the conversation you want analyzed is visible.")
-                .setContentIntent(openApp)
+                .setContentText("Use Subtext to analyze text · only when you choose")
+                .setContentIntent(scan)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
-                .addAction(new Notification.Action.Builder(null, "Scan", scan).build())
+                .addAction(new Notification.Action.Builder(null, "Use Subtext to analyze text", scan).build())
                 .addAction(new Notification.Action.Builder(null, "Stop", stop).build())
                 .build();
     }
@@ -313,25 +259,13 @@ public class ConversationAssistantService extends Service {
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
 
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private void removeOverlay() {
-        if (windowManager != null && overlay != null) {
-            try {
-                windowManager.removeView(overlay);
-            } catch (IllegalArgumentException ignored) { }
-        }
-        overlay = null;
-    }
-
     @Override
     public void onDestroy() {
         running = false;
         captureRequested = false;
         captureBusy = false;
-        removeOverlay();
+        if (companion != null) companion.close();
+        companion = null;
         if (virtualDisplay != null) virtualDisplay.release();
         virtualDisplay = null;
         if (imageReader != null) imageReader.close();

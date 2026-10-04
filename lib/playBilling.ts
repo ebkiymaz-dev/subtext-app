@@ -4,6 +4,7 @@ export type PlayBillingStatus = "loading" | "ready" | "purchased" | "pending" | 
 
 export interface PlayBillingState {
   android: boolean;
+  solanaAllowed?: boolean;
   status: PlayBillingStatus;
   entitled: boolean;
   price?: string;
@@ -34,6 +35,7 @@ export const PLAY_BILLING_EVENT = "subtext:billing";
 
 const WEB_STATE: PlayBillingState = {
   android: false,
+  solanaAllowed: true,
   status: "unavailable",
   entitled: false,
   message: "AnswerAce subscriptions are available in the Android app.",
@@ -44,6 +46,7 @@ function parseState(raw: string): PlayBillingState {
     const value = JSON.parse(raw) as Partial<PlayBillingState>;
     return {
       android: true,
+      solanaAllowed: value.solanaAllowed === true,
       status: value.status ?? "loading",
       entitled: value.entitled === true,
       price: value.price,

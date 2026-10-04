@@ -13,6 +13,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .eval-out/
+browser-extension/dist/
 android-twa/build-v*/
 android-twa/.gradle-user/
 android-twa/.android-user/

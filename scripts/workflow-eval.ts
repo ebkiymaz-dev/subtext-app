@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {previewContinuation,stageContinuedRead,consumeContinuedRead,clearContinuedRead} from '../lib/conversation-continuity';
+const base='Alex: Hello\nSam: Hi\nAlex: Saturday?';
+assert.equal(previewContinuation(base,'Alex: Saturday?\nSam: Yes').overlap,1);
+assert.equal(previewContinuation(base,'Alex: Saturday?\nSam: Yes').added,2,'no silent deduplication');
+assert.equal(previewContinuation(base,'Alex: Saturday?\nSam: Yes',true).added,1);
+assert.equal(previewContinuation(base,'Alex: Saturday?\nSam: Yes',true).combined,base+'\nSam: Yes');
+assert.equal(previewContinuation(base,'Sam: Hi\nAlex: Saturday?\nSam: Yes',true).overlap,2);
+assert.deepEqual(previewContinuation(base,'Мария: Привет').newNames,['Мария']);
+assert.throws(()=>previewContinuation(base,'unlabelled words'));
+assert.throws(()=>previewContinuation(base,'Sam: '+'x'.repeat(12000)));
+assert.equal(previewContinuation(base,'Sam: Hi',true).overlap,0,'repeated phrase away from boundary is kept');
+stageContinuedRead({raw:base,context:'dating',familiarity:'months',sourceId:'test',notice:'test'});
+assert.equal(consumeContinuedRead()?.raw,base);assert.equal(consumeContinuedRead(),null);
+stageContinuedRead({raw:base,context:'dating',familiarity:'months',sourceId:'test',notice:'test'});clearContinuedRead();assert.equal(consumeContinuedRead(),null);
+console.log('PASS: continuation boundary matching, explicit deduplication, Unicode names, invalid/oversized input, one-time handoff and erasure');

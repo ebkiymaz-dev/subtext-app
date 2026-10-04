@@ -91,12 +91,19 @@ const GROQ: ConnectBlock = {
     "train on it, but local Ollama is the stronger promise for this app.",
 };
 
-const LLM_ORDER = ["groq", "gemini", "ollama", "openai", "claude"] as const;
+const LLM_ORDER = ["cloudflare", "groq", "gemini", "ollama", "openai", "claude"] as const;
 
 const LLM_SPECS: Record<
   string,
   { label: string; keyEnv: string; free: boolean; limit: string; privacy: string }
 > = {
+  cloudflare: {
+    label: "Cloudflare Workers AI",
+    keyEnv: "CLOUDFLARE_API_TOKEN",
+    free: true,
+    limit: "Free allocation: 10,000 neurons per day; requests stop when the allocation is used.",
+    privacy: "Cloudflare says Workers AI customer content is not used to train models or improve services without explicit consent. Subtext does not enable Cloudflare storage services for AnswerAce.",
+  },
   groq: {
     label: "Groq",
     keyEnv: "GROQ_API_KEY",
@@ -143,6 +150,7 @@ function llmIsConfigured(name: string): boolean {
   const spec = LLM_SPECS[name];
   const hasCredentials = Boolean(spec?.keyEnv && env(spec.keyEnv));
   if (!hasCredentials) return false;
+  if (name === "cloudflare" && !env("CLOUDFLARE_ACCOUNT_ID")) return false;
   if (env("ANSWER_COACH_PROVIDER_TERMS_CONFIRMED").toLowerCase() !== "true") return false;
   if (name === "gemini" && env("GEMINI_PAID_DATA_TERMS_CONFIRMED").toLowerCase() !== "true") return false;
   return true;
@@ -151,6 +159,7 @@ function llmIsConfigured(name: string): boolean {
 function coachMissingConfiguration(provider: string, spec?: { keyEnv: string }): string[] {
   const missing: string[] = [];
   if (spec?.keyEnv && !env(spec.keyEnv)) missing.push(spec.keyEnv);
+  if (provider === "cloudflare" && !env("CLOUDFLARE_ACCOUNT_ID")) missing.push("CLOUDFLARE_ACCOUNT_ID");
   if (provider !== "ollama" && env("ANSWER_COACH_PROVIDER_TERMS_CONFIRMED").toLowerCase() !== "true") {
     missing.push("ANSWER_COACH_PROVIDER_TERMS_CONFIRMED=true");
   }
@@ -202,6 +211,7 @@ export interface CoachProvider {
 }
 
 const COACH_MODEL_LADDERS: Record<string, string[]> = {
+  cloudflare: ["@cf/meta/llama-3.3-70b-instruct-fp8-fast"],
   // Verified against the live API 2026-07-29 in nj_providers: ListModels and
   // generateContent disagree, so this ladder is the call-verified one.
   gemini: ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.0-flash"],
@@ -223,7 +233,9 @@ export function resolveCoachProvider(): CoachProvider {
     : (COACH_MODEL_LADDERS[provider] ?? []);
 
   const baseUrl =
-    provider === "groq"
+    provider === "cloudflare"
+      ? `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env("CLOUDFLARE_ACCOUNT_ID"))}/ai/v1`
+      : provider === "groq"
       ? "https://api.groq.com/openai/v1"
       : provider === "ollama"
         ? `${env("OLLAMA_HOST") || "http://127.0.0.1:11434"}/v1`

@@ -9,7 +9,7 @@ export default function PrivacyPage() {
   return (
     <article className="mx-auto max-w-3xl space-y-8 rounded-sbt border border-sbt-linen bg-white/70 p-5 shadow-soft sm:p-8">
       <header>
-        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">Effective 26 August 2026</p>
+        <p className="text-[10px] uppercase tracking-widest text-sbt-mute">Effective 7 September 2026</p>
         <h1 className="mt-2 font-display text-3xl text-sbt-ink">Privacy policy</h1>
         <p className="mt-3 text-sm leading-relaxed text-sbt-dusk">
           This policy explains how Subtext, a Neon Jungle Tools product, handles information when
@@ -43,8 +43,8 @@ export default function PrivacyPage() {
         <p className="mt-3">
           On Android, you can deliberately choose Subtext from another app&apos;s Share menu for selected
           text or a screenshot. Android hands that one selected item to Subtext in memory. Subtext does
-          not request accessibility, screen-overlay, contacts, SMS, notification-reading, or background
-          surveillance permissions, and shared content is not placed in a URL or automatically archived.
+          not need screen-overlay permission for sharing. It does not request accessibility, contacts,
+          SMS or notification-reading access. Shared content is not placed in a URL or automatically archived.
         </p>
         <p className="mt-3">
           Android Conversation Assist is a separate, optional screen-capture session. Android asks for
@@ -54,9 +54,11 @@ export default function PrivacyPage() {
           Service, bypass protected screens, continuously archive frames, automatically send messages, or
           submit a captured conversation to AnswerAce without a separate request.
         </p>
+        <p className="mt-3">The on-demand analysis panel requires Android&apos;s Display over other apps permission and can be closed at any time. There is no persistent floating button: during an enabled capture session, use the Android notification action. Notification permission is required to show that action. On PC, choose Subtext from the browser toolbar to read selected text or the visible conversation on a supported site. It does not collect hidden inbox history. Closing the panel clears its unsaved content. Extension permissions cover only the supported messaging/email sites and the Subtext API, not every website.</p>
       </PolicySection>
 
       <PolicySection title="AnswerAce and Google Play billing">
+        <p className="mb-3">The free allowance permits up to three successful AnswerAce generations per UTC calendar month per installation, subject to abuse and service limits. A signed random installation token is stored locally; the server stores its hashed identifier, monthly usage and temporary reservation metadata, not conversation content. Clearing installation data may remove the local token but does not remove existing server usage records. Phone and PC allowances are not linked to one person. Paid Android subscriptions continue to use Google Play verification.</p>
         <p>
           In the Android app, AnswerAce is an optional Google Play subscription. Google Play
           handles checkout, payment details, renewals, cancellation, and purchase restoration.
@@ -64,6 +66,19 @@ export default function PrivacyPage() {
           the Android app supplies a purchase token to the Subtext server. The server verifies it with
           Google Play before allowing the model request. Subtext does not use that token for advertising
           or include it in application logs.
+        </p>
+      </PolicySection>
+
+      <PolicySection title="Optional Solana web pass">
+        <p>
+          If you choose a Solana web pass, Subtext creates a short-lived payment order linked to the
+          one-way hash of your signed installation token. The order records the receiving address,
+          token and amount, unique payment reference, creation and expiry times, and the verified
+          transaction signature. The server keeps the pass expiry linked to that hashed identifier
+          so it can check access and restore it when you supply your private recovery code. The code
+          is stored on your device; anyone you give it to can use your pass. Solana transactions are
+          public and may reveal wallet addresses, token amounts, and payment times to others. Subtext
+          does not request your wallet seed phrase or private key and does not store either one.
         </p>
       </PolicySection>
 
@@ -104,16 +119,17 @@ export default function PrivacyPage() {
           </p>
           <p>
           For abuse prevention, the application keeps one-way hashes derived from request network
-          information—and, after successful purchase verification, the verified subscription subject—in
-          volatile server memory for no more than one hour. The application does not persist the raw
+          information in volatile server memory for no more than one hour. Free AnswerAce allowances
+          and Solana passes also require durable hashed installation identifiers and related usage or
+          payment records as described above. The application does not persist the raw Google Play
           purchase token. Standard hosting and security logs may be retained under the configured hosting
           providers&apos; policies; their exact period is not set by the Subtext application and must not be
           inferred from this policy.
           </p>
           <p>
-          Because this release
-          has no server-side user accounts or conversation records, there is no cloud account record
-          to delete. A local profile and individual archived conversations can be deleted inside the
+          Subtext has no server-side conversation archive or named user accounts. Payment and allowance
+          records are separate from local conversations; clearing a device does not delete those records
+          or reverse a purchase. A local profile and individual archived conversations can be deleted inside the
           Archive screen. The control below removes all Subtext-owned browser storage, cached Subtext pages,
           and Subtext offline service-worker state from this device without clearing other Neon Jungle apps.
           You may contact

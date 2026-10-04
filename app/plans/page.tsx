@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import SolanaCheckout from "@/components/SolanaCheckout";
+import WalletConnect from "@/components/WalletConnect";
 import {
   PLAY_BILLING_EVENT,
   managePlaySubscription,
@@ -76,14 +78,17 @@ export default function PlansPage() {
         ) : (
           <div className="mt-5 rounded-sbt border border-sbt-linen bg-white/70 p-4">
             <p className="text-sm leading-relaxed text-sbt-dusk">
-              Subscriptions are purchased and managed inside the Subtext Android app through Google Play.
-              The web reader remains available here for free.
+              Google Play subscriptions are purchased and managed inside the Subtext Android app.
+              The web reader remains free; an optional prepaid Solana pass appears below when available.
             </p>
           </div>
         )}
 
         {billing.message ? <p role="status" className="mt-3 text-xs leading-relaxed text-sbt-mute">{billing.message}</p> : null}
       </section>
+
+      <WalletConnect />
+      {billing.status !== "loading" && billing.solanaAllowed ? <SolanaCheckout /> : null}
 
       <section className="rounded-sbt border border-sbt-linen bg-white/70 p-5 text-sm leading-relaxed text-sbt-dusk">
         <h2 className="font-display text-lg text-sbt-ink">Before you subscribe</h2>

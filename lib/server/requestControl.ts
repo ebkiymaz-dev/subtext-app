@@ -82,7 +82,7 @@ export function signRemoteRequest(secret: string, canonical: string): string {
   return `v1=${createHmac("sha256", secret).update(canonical).digest("hex")}`;
 }
 
-async function remotePost<T>(path: string, payload: object): Promise<T> {
+export async function remotePost<T>(path: string, payload: object): Promise<T> {
   const config = remoteConfig();
   if (!config) throw new RequestControlUnavailableError("Remote request control is disabled in local development");
   const body = JSON.stringify(payload);

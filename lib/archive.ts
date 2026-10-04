@@ -48,12 +48,14 @@ export function deleteLocalProfile(): void {
   window.localStorage.removeItem(ARCHIVE_KEY);
 }
 
-export function readArchive(): ArchivedConversation[] {
+export function readArchive(strict = false): ArchivedConversation[] {
   if (typeof window === "undefined") return [];
   try {
     const value = JSON.parse(window.localStorage.getItem(ARCHIVE_KEY) ?? "[]") as ArchivedConversation[];
-    return Array.isArray(value) ? value.filter((item) => item?.id && item?.raw).slice(0, 100) : [];
+    if(!Array.isArray(value)||value.length>100||value.some(item=>!item||typeof item.id!=='string'||typeof item.profileId!=='string'||typeof item.raw!=='string'||typeof item.title!=='string'||typeof item.otherName!=='string'||!Array.isArray(item.categories)||item.categories.some(c=>!c||typeof c.label!=='string'||typeof c.read!=='string'||!Number.isFinite(c.percent))))throw new Error('Saved archive could not be read. It was not changed.');
+    return value;
   } catch {
+    if(strict)throw new Error('Saved archive could not be read. It was not overwritten.');
     return [];
   }
 }
@@ -62,7 +64,7 @@ export function saveArchivedConversation(
   profile: LocalProfile,
   input: Omit<ArchivedConversation, "id" | "profileId" | "createdAt">
 ): ArchivedConversation {
-  const existing = readArchive();
+  const existing = readArchive(true);
   // Repeated taps or returning from Archive must not create another copy.
   const duplicate = existing.find((item) => item.profileId === profile.id
     && item.raw === input.raw && item.context === input.context
@@ -86,7 +88,7 @@ export function saveArchivedConversation(
 }
 
 export function deleteArchivedConversation(id: string): ArchivedConversation[] {
-  const next = readArchive().filter((item) => item.id !== id);
+  const next = readArchive(true).filter((item) => item.id !== id);
   window.localStorage.setItem(ARCHIVE_KEY, JSON.stringify(next));
   return next;
 }

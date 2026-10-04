@@ -32,6 +32,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  if (pathname === "/assist" || pathname === "/assist/") return <>{children}</>;
+
   return (
     <div className="min-h-[100dvh] bg-sbt-paper">
       <header className="sticky top-0 z-40 border-b border-sbt-linen bg-sbt-paper/90 backdrop-blur" style={{ paddingTop: "env(safe-area-inset-top)" }}>

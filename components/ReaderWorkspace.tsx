@@ -56,6 +56,7 @@ import { clearActiveRead, keepActiveRead, readActiveRead } from "@/lib/active-re
 import { createWorkspaceLifetime, ERASE_WORKSPACE_EVENT } from "@/lib/workspace-lifetime";
 import { assessEnglishReadiness, type LanguageAssessment } from "@/lib/language-support";
 import { prepareImportedChatText } from "@/lib/chat-import";
+import {consumeContinuedRead} from '@/lib/conversation-continuity';
 
 type Phase = "intake" | "analyzing" | "result" | "distress";
 type ContentKind = "conversation" | "post";
@@ -169,12 +170,25 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   const chatExportInput = useRef<HTMLInputElement>(null);
   const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
-
   const [coachGoal, setCoachGoal] = useState<CoachGoalId>("understand");
   const [coachTone, setCoachTone] = useState<CoachToneId>("direct");
   const [coachStakes, setCoachStakes] = useState("");
   const [coachState, setCoachState] = useState<"idle" | "running" | "done">("idle");
   const [coachResult, setCoachResult] = useState<PersonalizedCoachResult | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    const next = consumeContinuedRead();
+    if (!next) return;
+    lifetime.current.invalidate(); clearActiveRead();
+    setRaw(next.raw); setContentKind('conversation'); setContext(next.context); setFamiliarity(next.familiarity);
+    setContextConfirmed(true); setFamiliarityConfirmed(true); setYouName(null); setFocusName(null);
+    setSpeakerAssignments({}); setExcludedMessages({}); setCustomParticipants([]); setOtherName(''); setNewParticipant('');
+    setOcrSpeakersConfirmed(false); setAnalysisLanguageChoice('auto'); setAnalysis(null); setPhase('intake'); setActive(null);
+    setCoachResult(null); setCoachState('idle'); setCoachStakes(''); setSaveState('idle'); setRunError(null);
+    setShareImportMessage(next.notice); setOcrState('idle'); setOcrMessage(null); setParseWarning(null);
+  }, [visible]);
+
   const [resolutionMarked, setResolutionMarked] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "shared" | "copied" | "failed">("idle");
 
@@ -607,17 +621,12 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
   async function runAnswerCoach() {
     if (!analysis) return;
     const entitlement = readPlayEntitlementProof();
-    if (!entitlement) {
-      setCoachResult({ ok: false, reason: "Restore the active Google Play subscription, then try again." });
-      setCoachState("done");
-      return;
-    }
     const ticket = lifetime.current.start();
     setCoachState("running");
     const result = await requestPersonalizedCoach({
       text: preparedTranscript(), context: contentKind === "post" ? "other" : context,
       familiarity: contentKind === "post" ? "days" : familiarity, youName: preparedYouName(),
-      goal: coachGoal, tone: coachTone, stakes: coachStakes, entitlement,
+      goal: coachGoal, tone: coachTone, stakes: coachStakes, entitlement, inputKind: contentKind === "post" ? "message" : "conversation",
     });
     if (!lifetime.current.isCurrent(ticket)) return;
     setCoachResult(result);
@@ -756,7 +765,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
 
   // Standard reads and evidence stay free; only AnswerAce is a paid extra.
   const unlocked = true;
-  const coachUnlocked = billing.entitled;
+  const coachUnlocked = true; // Server verifies either paid entitlement or the monthly free allowance.
 
   if (phase === "distress") return <DistressCard onBack={reset} mode={distressMode} />;
 
@@ -845,6 +854,7 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
 
         <CoachCard
           locked={!coachUnlocked}
+          freeTrial={!billing.entitled}
           state={coachState}
           result={coachResult}
           goal={coachGoal}
@@ -1084,8 +1094,8 @@ export default function ReaderWorkspace({ visible }: { visible: boolean }) {
                 <p className="text-sm font-semibold text-sbt-ink">Conversation Assist</p>
                 <p className="mt-1 text-[12px] leading-relaxed text-sbt-dusk">
                   {assistant.active
-                    ? "On. Switch to WhatsApp, Instagram, or another conversation and tap the visible Subtext Scan control."
-                    : "Turn it on, switch to your conversation, then tap Subtext Scan to bring the visible messages back for analysis and reply options."}
+                    ? "On. Open your WhatsApp, Instagram, or other conversation. Pull down notifications and tap Use Subtext to analyze text."
+                    : "Turn it on, open your conversation, then pull down notifications and tap Use Subtext to analyze text. Nothing is scanned until you choose."}
                 </p>
               </div>
               {assistant.active ? (

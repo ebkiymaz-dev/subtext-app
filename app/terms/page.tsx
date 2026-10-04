@@ -47,6 +47,18 @@ export default function TermsPage() {
         after cancellation.
       </TermsSection>
 
+      <TermsSection title="Optional Solana web pass">
+        When offered on the web, the Solana pass gives 30 days of AnswerAce access for the price and token
+        shown before payment. It is prepaid and does not renew. Each payment request has a unique reference
+        and expires after 15 minutes. Send only the displayed token, amount, and network through a compatible
+        wallet; sending a different asset or sending directly to the receiving address may not activate access.
+        Access begins only after Subtext verifies a finalized matching transaction. Save the private recovery
+        code shown after payment: anyone holding it can use the pass, and losing it may prevent restoration on
+        another device. Contact us with the transaction signature if a valid payment is not credited or you
+        request a refund. Refunds and statutory remedies are handled under applicable consumer law; an
+        on-chain transfer cannot itself be cancelled after confirmation.
+      </TermsSection>
+
       <TermsSection title="Availability and changes">
         We may maintain, change, suspend, or discontinue features, including model-backed features, when needed
         for security, reliability, law, or product operation. We do not promise uninterrupted or error-free
