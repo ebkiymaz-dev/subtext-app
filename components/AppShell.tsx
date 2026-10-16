@@ -1,5 +1,7 @@
 "use client";
 
+import NeonJungleBrand from "./NeonJungleBrand";
+
 import { useEffect, useState } from "react";
 import { BASE_PATH } from "@/lib/basePath";
 import Link from "next/link";
@@ -127,6 +129,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
       </nav>
 
+      <NeonJungleBrand />
       <footer className="border-t border-sbt-linen pb-16 sm:pb-0">
         <div className="mx-auto w-full max-w-6xl space-y-1 px-4 py-6 sm:px-6">
           <p className="text-xs leading-relaxed text-sbt-mute">
